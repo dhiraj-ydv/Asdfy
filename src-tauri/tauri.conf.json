@@ -27,8 +27,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
-    "createUpdaterArtifacts": true,
+    "targets": ["deb"],
     "publisher": "Exolithe Labs",
     "copyright": "Copyright 2026 Exolithe Labs",
     "category": "Education",
@@ -38,26 +37,7 @@
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
-      "icons/128x128@2x.png",
-      "icons/icon.ico"
-    ],
-    "windows": {
-      "nsis": {
-        "displayLanguageSelector": false,
-        "installMode": "currentUser",
-        "installerIcon": "icons/icon.ico"
-      }
-    },
-    "macOS": {
-      "signingIdentity": "-"
-    }
-  },
-  "plugins": {
-    "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDY1QzVFRDA5MDYzMjc3ODIKUldTQ2R6SUdDZTNGWlZjdDdyVVd0WXBraVQzdlBneGptUHcvTHMzR1VKdm1STzVOTVRhM20vWHoK",
-      "endpoints": [
-        "https://github.com/dhiraj-ydv/typedh/releases/latest/download/latest.json"
-      ]
-    }
+      "icons/128x128@2x.png"
+    ]
   }
 }

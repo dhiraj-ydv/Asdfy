@@ -54,7 +54,6 @@ fn app_version() -> String { env!("CARGO_PKG_VERSION").to_string() }
 
 pub fn run() {
     tauri::Builder::default()
-        .plugin(tauri_plugin_updater::Builder::new().build())
         .setup(|app| {
             let mut directory = app.path().app_data_dir()?;
             if cfg!(debug_assertions) { directory = directory.join("development"); }

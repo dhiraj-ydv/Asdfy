@@ -3,8 +3,6 @@ import { ref, onMounted, onUnmounted } from 'vue';
 import Keyboard from './components/Keyboard.vue';
 import TypingArea from './components/TypingArea.vue';
 import { getLessons, getProgress, saveProgress, restartApplication, stopApplication, appVersion } from './api';
-import { check } from '@tauri-apps/plugin-updater';
-import { checkForUpdates, friendlyUpdateError, progressFraction, isDesktop, type UpdateCheck } from './updates';
 
 interface Lesson { id: number; title: string; content: string; level: number }
 interface Progress { id: number; lesson_id: number; wpm: number; accuracy: number; completed_at: string }
@@ -28,113 +26,19 @@ const currentView = ref('lesson');
 const customText = ref('');
 const MAX_CUSTOM_LENGTH = 10000;
 
-// In-app updates (signed releases from GitHub Releases).
-type UpdatePhase = 'idle' | 'checking' | 'downloading' | 'installing' | 'installed' | 'error';
-const updateCheck = ref<UpdateCheck | null>(null);
-const updatePhase = ref<UpdatePhase>('idle');
-const updateProgress = ref<number | null>(null);
-const updateStatusText = ref('');
-const updateError = ref('');
+// Updates are manual pacman installs from GitHub Releases (Arch-only).
+const installedVersion = ref('');
+const updatesError = ref('');
 
 async function openUpdatesView() {
   setView('updates');
-  updateCheck.value = null;
-  updatePhase.value = 'idle';
-  updateProgress.value = null;
-  updateStatusText.value = '';
-  updateError.value = '';
-  if (!isDesktop()) {
-    updatePhase.value = 'error';
-    updateError.value = 'Update checks are available in the desktop app.';
-    return;
-  }
+  installedVersion.value = '';
+  updatesError.value = '';
   try {
-    updateStatusText.value = 'Reading the installed version…';
-    updateCheck.value = { kind: 'up-to-date', currentVersion: await appVersion() };
-  } catch (error) {
-    updatePhase.value = 'error';
-    updateError.value = friendlyUpdateError(error);
+    installedVersion.value = await appVersion();
+  } catch {
+    updatesError.value = 'The installed version could not be read.';
   }
-}
-
-async function checkUpdates() {
-  updatePhase.value = 'checking';
-  updateProgress.value = null;
-  updateStatusText.value = 'Checking GitHub Releases for a newer signed version…';
-  updateError.value = '';
-  try {
-    updateCheck.value = await checkForUpdates({
-      getAppVersion: appVersion,
-      checkPlugin: async () => {
-        const found = await check();
-        if (!found) return null;
-        return {
-          version: found.version,
-          notes: found.body ?? '',
-          install: async (onProgress) => {
-            let downloaded = 0;
-            let total: number | undefined;
-            await found.downloadAndInstall((event) => {
-              if (event.event === 'Started') {
-                downloaded = 0;
-                total = event.data.contentLength;
-                onProgress(0, total);
-              } else if (event.event === 'Progress') {
-                downloaded += event.data.chunkLength;
-                onProgress(downloaded, total);
-              } else if (event.event === 'Finished') {
-                onProgress(downloaded, total ?? downloaded);
-              }
-            });
-          },
-        };
-      },
-    });
-  } catch (error) {
-    updatePhase.value = 'error';
-    updateError.value = friendlyUpdateError(error);
-    return;
-  }
-  const result = updateCheck.value;
-  if (!result || result.kind === 'up-to-date') {
-    updatePhase.value = 'idle';
-    updateStatusText.value = 'You are on the latest version.';
-  } else if (result.kind === 'unsupported' || result.kind === 'error') {
-    updatePhase.value = 'error';
-    updateError.value = result.kind === 'unsupported' ? result.reason : result.message;
-  } else {
-    updatePhase.value = 'idle';
-    updateStatusText.value = `Version ${result.version} is available.`;
-  }
-}
-
-async function installStockUpdate() {
-  const result = updateCheck.value;
-  if (!result || result.kind !== 'available-stock') return;
-  if (!confirm(`Download and install version ${result.version}?`)) return;
-  updatePhase.value = 'downloading';
-  updateProgress.value = null;
-  updateStatusText.value = `Downloading version ${result.version}…`;
-  updateError.value = '';
-  try {
-    await result.install((downloaded, total) => {
-      updateProgress.value = progressFraction(downloaded, total);
-      if (total) {
-        updateStatusText.value = `Downloading version ${result.version}… ${Math.round((updateProgress.value ?? 0) * 100)}%`;
-      }
-    });
-    updatePhase.value = 'installed';
-    updateProgress.value = 1;
-    updateStatusText.value = `Version ${result.version} is installed.`;
-  } catch (error) {
-    updatePhase.value = 'error';
-    updateError.value = friendlyUpdateError(error);
-  }
-}
-
-async function restartAfterUpdate() {
-  try { await restartApplication(); }
-  catch { updateError.value = 'The app could not restart. Close and reopen it to finish updating.'; }
 }
 
 function readPreference(key: string) {
@@ -400,46 +304,13 @@ onUnmounted(() => {
       <div v-if="currentView === 'updates'" class="history-view-content">
         <div class="card">
           <h2>Updates</h2>
-          <p v-if="updateCheck && 'currentVersion' in updateCheck && updateCheck.currentVersion">
-            Installed version: {{ updateCheck.currentVersion }}
+          <p v-if="installedVersion">
+            Installed version: {{ installedVersion }}
           </p>
-          <p v-if="updateStatusText" role="status">{{ updateStatusText }}</p>
-          <div v-if="updatePhase === 'downloading' || updatePhase === 'installing'" class="update-progress">
-            <progress :value="updateProgress ?? undefined" max="1" aria-label="Update progress">
-              {{ updateProgress === null ? 'Working…' : `${Math.round(updateProgress * 100)}%` }}
-            </progress>
-          </div>
-          <p v-if="updateCheck && updateCheck.kind !== 'up-to-date' && 'version' in updateCheck && updateCheck.version">
-            Available version: {{ updateCheck.version }}
-          </p>
-          <p v-if="updateCheck && 'notes' in updateCheck && updateCheck.notes">{{ updateCheck.notes }}</p>
-          <p v-if="updateError" class="update-error" role="alert">{{ updateError }}</p>
-          <div class="upload-actions">
-            <button
-              :disabled="updatePhase === 'checking' || updatePhase === 'downloading' || updatePhase === 'installing'"
-              @click="checkUpdates"
-            >
-              Check for updates
-            </button>
-            <button
-              v-if="updateCheck && updateCheck.kind === 'available-stock'"
-              :disabled="updatePhase !== 'idle'"
-              @click="installStockUpdate"
-            >
-              Download &amp; install
-            </button>
-            <button
-              v-if="updatePhase === 'installed'"
-              @click="restartAfterUpdate"
-            >
-              Restart now
-            </button>
-          </div>
+          <p v-if="updatesError" class="update-error" role="alert">{{ updatesError }}</p>
           <p class="update-note">
-            Updates are signed and verified before installing. On Windows and macOS the app closes while the
-            installer finishes — reopen it if it does not restart by itself. On Linux, update with
-            sudo pacman -U using the newer typedh .pkg.tar.zst from GitHub Releases. Your lessons and
-            progress are kept.
+            Update with sudo pacman -U using the newer typedh .pkg.tar.zst from GitHub Releases.
+            pacman -Syu alone will not pick it up. Your lessons and progress are kept.
           </p>
         </div>
       </div>
@@ -650,11 +521,6 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   gap: 10px;
-}
-
-.update-progress progress {
-  width: 100%;
-  margin: 10px 0;
 }
 
 .update-error {
