@@ -8,7 +8,7 @@ const props = defineProps<{
 }>();
 
 const emit = defineEmits<{ complete: [score: Score]; targetChange: [character: string] }>();
-const { input, focused, inputElement, displayElement, score, targetCharacters, inputCharacters, focus, acceptInput } = useExercise(
+const { input, focused, score, targetCharacters, inputCharacters, focus, acceptInput } = useExercise(
   () => props.targetText, () => props.enabled,
   value => emit('complete', value), value => emit('targetChange', value),
 );
@@ -35,7 +35,7 @@ const { input, focused, inputElement, displayElement, score, targetCharacters, i
       <div v-if="!focused" class="focus-overlay">
         <span>Click to Resume</span>
       </div>
-      <div ref="displayElement" class="scroll-container">
+      <div ref="exercise-display" class="scroll-container">
         <div class="text-scroller">
           <span 
             v-for="(char, index) in targetCharacters"
@@ -54,7 +54,7 @@ const { input, focused, inputElement, displayElement, score, targetCharacters, i
     </div>
 
     <input 
-      ref="inputElement"
+      ref="exercise-input"
       :value="input"
       :disabled="!enabled"
       class="hidden-input" 

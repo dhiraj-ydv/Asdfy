@@ -36,6 +36,8 @@ jobs:
           npm --prefix frontend ci
       - name: Frontend regression tests
         run: node --experimental-strip-types --test "frontend/tests/*.test.mjs"
+      - name: Frontend type check
+        run: npm --prefix frontend exec -- vue-tsc -b frontend/tsconfig.app.json
       - name: Audit JavaScript dependencies
         run: |
           npm audit --audit-level=high

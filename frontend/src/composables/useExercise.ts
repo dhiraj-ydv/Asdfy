@@ -1,4 +1,4 @@
-import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch } from 'vue';
 import type { Score } from '../domain/models';
 import { Exercise } from '../domain/practice';
 
@@ -10,8 +10,8 @@ export function useExercise(
 ) {
   const input = ref('');
   const focused = ref(false);
-  const inputElement = ref<HTMLInputElement | null>(null);
-  const displayElement = ref<HTMLElement | null>(null);
+  const inputElement = useTemplateRef<HTMLInputElement>('exercise-input');
+  const displayElement = useTemplateRef<HTMLElement>('exercise-display');
   const score = ref<Score>({ wpm: 0, accuracy: 100 });
   const targetCharacters = computed(() => Array.from(target()));
   const inputCharacters = computed(() => Array.from(input.value));
@@ -73,5 +73,5 @@ export function useExercise(
     if (timer) clearInterval(timer);
   });
 
-  return { input, focused, inputElement, displayElement, score, targetCharacters, inputCharacters, focus, acceptInput };
+  return { input, focused, score, targetCharacters, inputCharacters, focus, acceptInput };
 }
