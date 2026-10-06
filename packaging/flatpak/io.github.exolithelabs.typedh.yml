@@ -40,7 +40,9 @@ modules:
         path: ../..
     build-commands:
       - node --version && npm --version && cargo --version && rustc --version
-      - npm --prefix frontend ci
+      - curl -sS -o /dev/null -w 'registry:%{http_code}\n' --max-time 20 https://registry.npmjs.org/vue || true
+      - curl -sS -o /dev/null -w 'crates:%{http_code}\n' --max-time 20 https://crates.io/api/v1/crates/serde || true
+      - npm --prefix frontend ci || (echo '--- npm debug log ---'; tail -n 80 ${NPM_CONFIG_CACHE}/_logs/*-debug-0.log; exit 1)
       - npm --prefix frontend run build
       - cargo build --release --locked --manifest-path src-tauri/Cargo.toml
       - install -Dm755 src-tauri/target/release/typedh /app/bin/typedh
