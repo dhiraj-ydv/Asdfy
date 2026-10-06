@@ -102,17 +102,9 @@ current OS user. The backend creates `colemak.db` there and seeds the built-in
 lessons. Later launches reuse that database. Different OS users have separate
 progress; there is no cloud synchronization or online login.
 
-The product was renamed from Colemak-DH Tutor to **TypeDH**, and the
-Flatpak conversion lowercased the application ID to
-`io.github.exolithelabs.typedh`. The database filename `colemak.db` is
-unchanged. If you used the earlier pacman package, migrate once by copying
-the database while the app is fully closed:
-
-```bash
-mkdir -p ~/.var/app/io.github.exolithelabs.typedh/data/io.github.exolithelabs.typedh
-cp ~/.local/share/io.github.exolithelabs.ColemakDHTutor/colemak.db \
-  ~/.var/app/io.github.exolithelabs.typedh/data/io.github.exolithelabs.typedh/colemak.db
-```
+TypeDH is pre-launch and distributed only as a Flatpak application with ID
+`io.github.exolithelabs.typedh`. No migration from earlier development
+packages is required.
 
 The source repository contains code and bundled assets. Runtime databases,
 generated binaries, dependency directories, and build output are ignored by Git.
