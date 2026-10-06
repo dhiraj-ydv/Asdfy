@@ -20,7 +20,7 @@ pagination, and persistence across restart. Published assets include a
 `SHA256SUMS` file. An already published release cannot be overwritten by
 rerunning the workflow; create a new version instead.
 
-The Linux job builds the bundle with `flatpak-builder` inside the GNOME 48
+The Linux job builds the bundle with `flatpak-builder` inside the GNOME 49
 SDK container (`packaging/flatpak/build-flatpak.sh`), then exports a
 single-file `.flatpak` bundle with `flatpak build-bundle`.
 
@@ -33,19 +33,21 @@ The `linux-flatpak` job runs on `ubuntu-24.04`:
    `patchelf`).
 2. Run the Rust backend tests on the host (`cargo test --locked
    --manifest-path src-tauri/Cargo.toml --lib`).
-3. Install the GNOME platform/SDK (`org.gnome.Platform//48`,
-   `org.gnome.Sdk//48`) and the Rust/Node SDK extensions from Flathub.
+3. Install the GNOME platform/SDK (`org.gnome.Platform//49`,
+   `org.gnome.Sdk//49`) and the Rust/Node SDK extensions on branch `25.08` from Flathub.
 4. Run `packaging/flatpak/build-flatpak.sh`, producing
    `dist/typedh-<version>-x86_64.flatpak`.
 
 `packaging/flatpak/io.github.exolithelabs.typedh.yml` builds the frontend
 (`npm --prefix frontend ci` plus `npm --prefix frontend run build`) and the
-Tauri backend (`cargo build --release --locked`) inside the SDK, then installs
+Tauri backend (`cargo build --release --locked --features tauri/custom-protocol`) inside the SDK, then installs
 the `typedh` binary to `/app/bin`, the desktop entry, AppStream metadata, and
 the hicolor icons.
 
 The sandbox grants only display/GPU access (`ipc`, `fallback-x11`,
-`wayland`, `dri`). No network and no host filesystem access is granted.
+`wayland`, `dri`). No network and no host filesystem access is granted to the
+installed app. Build-time networking downloads locked npm/Cargo dependencies;
+this manifest targets GitHub bundles, not an offline Flathub submission.
 
 Keep the app version in sync across `package.json`,
 `src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, and

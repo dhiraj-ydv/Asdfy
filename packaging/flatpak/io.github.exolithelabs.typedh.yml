@@ -1,6 +1,6 @@
 app-id: io.github.exolithelabs.typedh
 runtime: org.gnome.Platform
-runtime-version: '48'
+runtime-version: '49'
 sdk: org.gnome.Sdk
 command: typedh
 finish-args:
@@ -14,6 +14,8 @@ sdk-extensions:
   - org.freedesktop.Sdk.Extension.node22
 
 build-options:
+  build-args:
+    - --share=network
   append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node22/bin
   env:
     NPM_CONFIG_CACHE: /run/build/typedh/npm-cache
@@ -38,13 +40,21 @@ modules:
     sources:
       - type: dir
         path: ../..
+        skip:
+          - .git
+          - .flatpak-builder
+          - node_modules
+          - frontend/node_modules
+          - frontend/dist
+          - src-tauri/target
+          - packaging/flatpak/build-dir
+          - packaging/flatpak/repo
+          - dist
     build-commands:
       - node --version && npm --version && cargo --version && rustc --version
-      - curl -sS -o /dev/null -w 'registry:%{http_code}\n' --max-time 20 https://registry.npmjs.org/vue || true
-      - curl -sS -o /dev/null -w 'crates:%{http_code}\n' --max-time 20 https://crates.io/api/v1/crates/serde || true
-      - npm --prefix frontend ci || (echo '--- npm debug log ---'; tail -n 80 ${NPM_CONFIG_CACHE}/_logs/*-debug-0.log; exit 1)
+      - npm --prefix frontend ci
       - npm --prefix frontend run build
-      - cargo build --release --locked --manifest-path src-tauri/Cargo.toml
+      - cargo build --release --locked --features tauri/custom-protocol --manifest-path src-tauri/Cargo.toml
       - install -Dm755 src-tauri/target/release/typedh /app/bin/typedh
       - install -Dm644 packaging/flatpak/io.github.exolithelabs.typedh.desktop /app/share/applications/io.github.exolithelabs.typedh.desktop
       - install -Dm644 packaging/flatpak/io.github.exolithelabs.typedh.metainfo.xml /app/share/metainfo/io.github.exolithelabs.typedh.metainfo.xml

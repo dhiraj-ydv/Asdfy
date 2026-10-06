@@ -22,7 +22,7 @@ mkdir -p "$output_dir"
 flatpak-builder --force-clean --repo=packaging/flatpak/repo \
   packaging/flatpak/build-dir "$manifest"
 
-flatpak build-bundle packaging/flatpak/repo \
+flatpak build-bundle --runtime-repo=https://flathub.org/repo/flathub.flatpakrepo packaging/flatpak/repo \
   "$bundle" "$app_id"
 
 echo "Wrote $bundle"

@@ -65,7 +65,7 @@ differs.
 
 Launch **TypeDH** from your application menu, or run
 `flatpak run io.github.exolithelabs.typedh` from a terminal. The app runs
-sandboxed on the GNOME 48 runtime with no network permission; the runtime is
+sandboxed on the GNOME 49 runtime with no network permission; the runtime is
 fetched from Flathub on first install when missing. The app is not published
 to Flathub; GitHub Releases is the distribution path. Updates are manual via
 `flatpak install` with a newer bundle file.
@@ -185,7 +185,8 @@ versions disagree.
 The normal workflow is to edit code locally, commit, and push. GitHub-hosted
 runners install dependencies, run backend tests, build the Flatpak bundle with
 flatpak-builder, and upload the resulting file. Release packaging builds
-inside the GNOME SDK container, not from this machine's build output.
+inside the GNOME SDK container, not from this machine's build output. Build-time
+networking downloads locked dependencies; the installed app stays offline.
 
 | Trigger | Result |
 | --- | --- |
@@ -240,7 +241,7 @@ store progress in a `development/` subdirectory of the app-data directory,
 separate from installed release builds.
 
 To build the Flatpak bundle locally instead, install Flatpak and
-flatpak-builder, add the Flathub remote, install the GNOME 48
+flatpak-builder, add the Flathub remote, install the GNOME 49
 platform/SDK plus the Rust and Node SDK extensions, and run:
 
 ```bash
