@@ -26,7 +26,7 @@ const currentView = ref('lesson');
 const customText = ref('');
 const MAX_CUSTOM_LENGTH = 10000;
 
-// Updates are manual pacman installs from GitHub Releases (Arch-only).
+// Updates are manual Flatpak bundle installs from GitHub Releases.
 const installedVersion = ref('');
 const updatesError = ref('');
 
@@ -309,8 +309,8 @@ onUnmounted(() => {
           </p>
           <p v-if="updatesError" class="update-error" role="alert">{{ updatesError }}</p>
           <p class="update-note">
-            Update with sudo pacman -U using the newer typedh .pkg.tar.zst from GitHub Releases.
-            pacman -Syu alone will not pick it up. Your lessons and progress are kept.
+            Update by installing the newer typedh .flatpak bundle file from GitHub Releases.
+            Your lessons and progress are kept.
           </p>
         </div>
       </div>

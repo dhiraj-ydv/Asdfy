@@ -13,65 +13,68 @@ progress history. No account or cloud database is required.
 ## Downloads and installation
 
 Open [GitHub Releases](https://github.com/dhiraj-ydv/typedh/releases),
-choose a version, and expand **Assets**. The published package is an
-Arch Linux pacman package for x86-64, installed with `pacman -U`.
+choose a version, and expand **Assets**. The published package is a
+Flatpak single-file bundle for x86-64, installed with `flatpak install`.
 
 | Download | Purpose |
 | --- | --- |
-| `typedh-<version>-1-x86_64.pkg.tar.zst` | Arch Linux pacman package (`pacman -U`) |
+| `typedh-<version>-x86_64.flatpak` | Flatpak bundle (`flatpak install`) |
 
 The automatically generated **Source code** archives contain project sources,
 not installers. Installed users do not need development tools.
 
-### Linux (Arch-based, pacman -U install)
+### Linux (Flatpak bundle install)
 
-Install or update with `pacman -U` using the `.pkg.tar.zst` from GitHub
-Releases. This is developer-hosted on Releases (not AUR / `pacman -Syu`).
-The same command upgrades an older installed version when given a newer
-package file.
+Install Flatpak itself through your distribution first (for example,
+`sudo pacman -S flatpak` on Arch, `sudo apt install flatpak` on Ubuntu),
+then add the Flathub remote once so the GNOME runtime can be resolved:
+
+```bash
+flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+```
+
+Install or update with `flatpak install` using the `.flatpak` bundle from
+GitHub Releases. The same command upgrades an older installed version when
+given a newer bundle file.
 
 #### 1. Download then install/update
 
-Download the `.pkg.tar.zst` from GitHub Releases (browser), then:
+Download the `.flatpak` bundle from GitHub Releases (browser), then:
 
 ```bash
-sudo pacman -U ./typedh-<version>-1-x86_64.pkg.tar.zst
+flatpak install --user ./typedh-<version>-x86_64.flatpak
 ```
 
 #### 2. Direct URL install/update (no browser download)
 
 ```bash
-sudo pacman -U "https://github.com/dhiraj-ydv/typedh/releases/download/v0.1.2/typedh-0.1.2-1-x86_64.pkg.tar.zst"
+flatpak install --user "https://github.com/dhiraj-ydv/typedh/releases/download/v0.1.2/typedh-0.1.2-x86_64.flatpak"
 ```
 
 Replace `v0.1.2` / `0.1.2` with the version you want.
 
-#### 3. curl then pacman -U
+#### 3. curl then flatpak install
 
 ```bash
-curl -L -O "https://github.com/dhiraj-ydv/typedh/releases/download/v0.1.2/typedh-0.1.2-1-x86_64.pkg.tar.zst"
-sudo pacman -U ./typedh-0.1.2-1-x86_64.pkg.tar.zst
+curl -L -O "https://github.com/dhiraj-ydv/typedh/releases/download/v0.1.2/typedh-0.1.2-x86_64.flatpak"
+flatpak install --user ./typedh-0.1.2-x86_64.flatpak
 ```
 
-All three are the same packaging method; only how the file reaches `pacman`
+All three are the same packaging method; only how the file reaches `flatpak`
 differs.
 
 Launch **TypeDH** from your application menu, or run
-`typedh` from a terminal. Pacman installs the runtime libraries the
-package declares (`webkit2gtk-4.1`, `gtk3`, `libsoup3`,
-`libayatana-appindicator`, `librsvg`, `cairo`, `pango`, `gdk-pixbuf2`,
-`glib2`, `openssl`, `hicolor-icon-theme`, `desktop-file-utils`; see
-`packaging/arch/PKGBUILD`). The app is not published to the AUR or an
-official Arch repository; GitHub Releases is the distribution path. Updates
-are manual via `pacman -U` with a newer file/URL — `pacman -Syu` alone will
-not pick this up without an AUR/repo entry.
+`flatpak run io.github.exolithelabs.typedh` from a terminal. The app runs
+sandboxed on the GNOME 48 runtime with no network permission; the runtime is
+fetched from Flathub on first install when missing. The app is not published
+to Flathub; GitHub Releases is the distribution path. Updates are manual via
+`flatpak install` with a newer bundle file.
 
 ### Updating
 
 Open the menu and choose **Updates** to see the installed version. To update,
-run `sudo pacman -U` with the newer `.pkg.tar.zst` file or URL (see the
-Linux section). `pacman -Syu` alone will not update this developer-hosted
-package. Your lessons and progress are kept.
+run `flatpak install --user` with the newer `.flatpak` bundle file or URL
+(see the Linux section). Your lessons and progress are kept.
 
 ## Using the app
 
@@ -99,10 +102,17 @@ current OS user. The backend creates `colemak.db` there and seeds the built-in
 lessons. Later launches reuse that database. Different OS users have separate
 progress; there is no cloud synchronization or online login.
 
-The product was renamed from Colemak-DH Tutor to **TypeDH** (issue #18), but
-the application ID and database filename were deliberately kept unchanged so
-existing progress is preserved with no migration: the UI says TypeDH while the
-data path stays `io.github.exolithelabs.ColemakDHTutor` / `colemak.db`.
+The product was renamed from Colemak-DH Tutor to **TypeDH**, and the
+Flatpak conversion lowercased the application ID to
+`io.github.exolithelabs.typedh`. The database filename `colemak.db` is
+unchanged. If you used the earlier pacman package, migrate once by copying
+the database while the app is fully closed:
+
+```bash
+mkdir -p ~/.var/app/io.github.exolithelabs.typedh/data/io.github.exolithelabs.typedh
+cp ~/.local/share/io.github.exolithelabs.ColemakDHTutor/colemak.db \
+  ~/.var/app/io.github.exolithelabs.typedh/data/io.github.exolithelabs.typedh/colemak.db
+```
 
 The source repository contains code and bundled assets. Runtime databases,
 generated binaries, dependency directories, and build output are ignored by Git.
@@ -110,9 +120,10 @@ The installed application passes an explicit per-user data path to the backend,
 so normal app startup does not store progress in the repository or install folder.
 
 Database location for the application ID
-`io.github.exolithelabs.ColemakDHTutor` (kept across the TypeDH rename):
+`io.github.exolithelabs.typedh`:
 
-`$XDG_DATA_HOME/io.github.exolithelabs.ColemakDHTutor/colemak.db`, defaulting to `~/.local/share/io.github.exolithelabs.ColemakDHTutor/colemak.db`
+Host path `~/.var/app/io.github.exolithelabs.typedh/data/io.github.exolithelabs.typedh/colemak.db`
+(sandbox `~/.local/share/io.github.exolithelabs.typedh/colemak.db`).
 
 Tauri resolves the exact path from the OS environment. The webview also stores
 small UI preferences, such as the selected lesson, in its local storage. Those
@@ -155,7 +166,7 @@ Project layout:
 frontend/           Vue interface (own npm project: frontend/package.json)
 src-tauri/          Rust commands, SQLite backend, tests, and desktop configuration
 scripts/            Release version checks
-packaging/arch/     Arch Linux PKGBUILD and packaging script (pacman .pkg.tar.zst)
+packaging/flatpak/ Flatpak manifest, desktop entry, AppStream metadata, bundle script
 .github/            Build/release workflow and Dependabot configuration
 docs/               Additional maintainer documentation (docs/RELEASING.md)
 package.json        Root npm project: Tauri CLI plus the version source of truth
@@ -172,9 +183,9 @@ versions disagree.
 ## GitHub builds and releases
 
 The normal workflow is to edit code locally, commit, and push. GitHub-hosted
-runners install dependencies, run backend tests, build the frontend and desktop
-app, package the pacman package, and upload the resulting file. Release packaging
-does not depend on this machine's build output.
+runners install dependencies, run backend tests, build the Flatpak bundle with
+flatpak-builder, and upload the resulting file. Release packaging builds
+inside the GNOME SDK container, not from this machine's build output.
 
 | Trigger | Result |
 | --- | --- |
@@ -190,7 +201,8 @@ release, and creating a tag locally does not trigger Actions until it is pushed.
 ### Publish a version
 
 Update the version in `package.json`, `src-tauri/Cargo.toml`,
-`src-tauri/tauri.conf.json`, and `packaging/arch/PKGBUILD`. Keep the corresponding
+`src-tauri/tauri.conf.json`, and
+`packaging/flatpak/io.github.exolithelabs.typedh.metainfo.xml`. Keep the corresponding
 lock files consistent, and commit those changes. Then push an unused matching tag;
 for example, after updating to `0.1.2`:
 
@@ -210,11 +222,11 @@ a rerun; use a new version tag. Releases include `SHA256SUMS` for the package.
 ## Development
 
 Production packages are built by GitHub Actions. For contributors who need a
-local interactive preview on Arch Linux, the commands below launch the desktop
+local interactive preview, the commands below launch the desktop
 development app with its integrated Rust backend.
 
 Use Node.js 22, the current stable Rust toolchain, and the native
-Tauri development prerequisites for Arch Linux. Run commands from the repo root.
+Tauri development prerequisites for your distribution. Run commands from the repo root.
 
 ```bash
 npm ci
@@ -227,10 +239,20 @@ alone in a browser is not a complete desktop-app preview. Development launches
 store progress in a `development/` subdirectory of the app-data directory,
 separate from installed release builds.
 
+To build the Flatpak bundle locally instead, install Flatpak and
+flatpak-builder, add the Flathub remote, install the GNOME 48
+platform/SDK plus the Rust and Node SDK extensions, and run:
+
+```bash
+./packaging/flatpak/build-flatpak.sh
+```
+
+This writes `dist/typedh-<version>-x86_64.flatpak`.
+
 ## Support and security
 
 For bugs, open an [issue](https://github.com/dhiraj-ydv/typedh/issues)
-with your app version, Arch-based distro version, installation method, and steps
+with your app version, distro version, installation method, and steps
 to reproduce. For a failed build, include the GitHub Actions run URL.
 
 For suspected vulnerabilities, follow [SECURITY.md](SECURITY.md) and report

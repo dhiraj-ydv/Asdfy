@@ -32,7 +32,9 @@ src-tauri/binaries/*
 
 # Local application control/build artifacts
 *.trigger
-packaging/arch/work/
+.flatpak-builder/
+packaging/flatpak/build-dir/
+packaging/flatpak/repo/
 dist/
 
 # IDEs

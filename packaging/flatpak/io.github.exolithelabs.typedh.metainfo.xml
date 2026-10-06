@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>io.github.exolithelabs.typedh</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>Elastic-2.0</project_license>
+  <name>TypeDH</name>
+  <summary>Colemak-DH typing tutor</summary>
+  <description>
+    <p>TypeDH is a focused desktop touch-typing tutor with progressive Colemak-DH lessons, live finger guidance, and private local progress tracking.</p>
+  </description>
+  <launchable type="desktop-id">io.github.exolithelabs.typedh.desktop</launchable>
+  <releases>
+    <release version="0.1.2"/>
+  </releases>
+</component>
