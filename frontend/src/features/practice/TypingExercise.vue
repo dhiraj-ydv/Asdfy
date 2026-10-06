@@ -1,119 +1,17 @@
 <script setup lang="ts">
-import { ref, watch, onMounted, onUnmounted, nextTick } from 'vue';
-import { calculateAccuracy } from '../metrics';
+import { useExercise } from '../../composables/useExercise';
+import type { Score } from '../../domain/models';
 
 const props = defineProps<{
   targetText: string;
+  enabled: boolean;
 }>();
 
-const emit = defineEmits(['complete', 'targetChange']);
-
-const userInput = ref('');
-const inputRef = ref<HTMLInputElement | null>(null);
-const isFocused = ref(true);
-const startTime = ref<number | null>(null);
-const wpm = ref(0);
-const accuracy = ref(100);
-const currentKey = ref('');
-
-const handleInput = (e: KeyboardEvent) => {
-  if (userInput.value.length === props.targetText.length) return;
-  
-  if (!startTime.value) {
-    startTime.value = Date.now();
-  }
-
-  currentKey.value = e.key;
-};
-
-const checkInput = () => {
-  const target = props.targetText;
-  const current = userInput.value;
-  
-  const nextChar = target[current.length] || '';
-  emit('targetChange', nextChar);
-
-  // Auto-scroll logic
-  nextTick(() => {
-    const currentElem = document.querySelector('.char.current');
-    if (currentElem) {
-      currentElem.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-  });
-
-  accuracy.value = calculateAccuracy(current, target);
-  
-  if (startTime.value) {
-    const elapsedMinutes = (Date.now() - startTime.value) / 60000;
-    if (elapsedMinutes > 0) {
-      wpm.value = Math.min(1000, Math.round((current.length / 5) / elapsedMinutes));
-    }
-  }
-
-  if (target.length > 0 && current.length === target.length) {
-    emit('complete', { wpm: wpm.value, accuracy: accuracy.value });
-  }
-};
-
-watch(userInput, checkInput);
-
-watch(() => props.targetText, () => {
-  userInput.value = '';
-  startTime.value = null;
-  wpm.value = 0;
-  accuracy.value = 100;
-  emit('targetChange', props.targetText[0] || '');
-  nextTick(() => {
-    inputRef.value?.focus();
-  });
-});
-
-const onKeyDown = (e: KeyboardEvent) => {
-  // Use currentKey for visualization
-  currentKey.value = e.key;
-
-  // TAB: Refocus the input
-  if (e.key === 'Tab') {
-    e.preventDefault();
-    inputRef.value?.focus();
-    isFocused.value = true;
-  }
-
-  // ESC: Reset the current lesson
-  if (e.key === 'Escape') {
-    e.preventDefault();
-    userInput.value = '';
-    startTime.value = null;
-    wpm.value = 0;
-    accuracy.value = 100;
-    emit('targetChange', props.targetText[0] || '');
-    nextTick(() => {
-      inputRef.value?.focus();
-    });
-  }
-};
-
-const onBlur = () => {
-  isFocused.value = false;
-};
-
-const onFocus = () => {
-  isFocused.value = true;
-};
-
-const forceFocus = () => {
-  inputRef.value?.focus();
-};
-
-onMounted(() => {
-  emit('targetChange', props.targetText[0] || '');
-  window.addEventListener('keydown', onKeyDown);
-  nextTick(() => forceFocus());
-});
-
-onUnmounted(() => {
-  window.removeEventListener('keydown', onKeyDown);
-});
+const emit = defineEmits<{ complete: [score: Score]; targetChange: [character: string] }>();
+const { input, focused, inputElement, displayElement, score, targetCharacters, inputCharacters, focus, acceptInput } = useExercise(
+  () => props.targetText, () => props.enabled,
+  value => emit('complete', value), value => emit('targetChange', value),
+);
 </script>
 
 <template>
@@ -121,32 +19,32 @@ onUnmounted(() => {
     <div class="stats-bar">
       <div class="stat-bubble">
         <span class="label">Speed</span>
-        <span class="value">{{ wpm }} <small>WPM</small></span>
+        <span class="value">{{ score.wpm }} <small>WPM</small></span>
       </div>
       <div class="stat-bubble">
         <span class="label">Accuracy</span>
-        <span class="value">{{ accuracy }}%</span>
+        <span class="value">{{ score.accuracy }}%</span>
       </div>
     </div>
 
     <div 
       class="text-display-card" 
-      :class="{ unfocused: !isFocused }"
-      @click="forceFocus"
+      :class="{ unfocused: !focused }"
+      @click="focus"
     >
-      <div v-if="!isFocused" class="focus-overlay">
+      <div v-if="!focused" class="focus-overlay">
         <span>Click to Resume</span>
       </div>
-      <div class="scroll-container">
+      <div ref="displayElement" class="scroll-container">
         <div class="text-scroller">
           <span 
-            v-for="(char, index) in targetText" 
+            v-for="(char, index) in targetCharacters"
             :key="index"
             class="char"
             :class="{
-              correct: userInput[index] === char,
-              incorrect: userInput[index] !== undefined && userInput[index] !== char,
-              current: userInput.length === index
+              correct: inputCharacters[index] === char,
+              incorrect: inputCharacters[index] !== undefined && inputCharacters[index] !== char,
+              current: inputCharacters.length === index
             }"
           >
             {{ char }}
@@ -156,8 +54,9 @@ onUnmounted(() => {
     </div>
 
     <input 
-      ref="inputRef"
-      v-model="userInput" 
+      ref="inputElement"
+      :value="input"
+      :disabled="!enabled"
       class="hidden-input" 
       :maxlength="targetText.length"
       aria-label="Type the displayed lesson here"
@@ -166,10 +65,9 @@ onUnmounted(() => {
       :spellcheck="false"
       @paste.prevent
       @drop.prevent
-      autofocus
-      @keydown="handleInput"
-      @blur="onBlur"
-      @focus="onFocus"
+      @input="acceptInput"
+      @blur="focused = false"
+      @focus="focused = true"
     />
     
     <div class="typing-hint">

@@ -15,8 +15,10 @@ together with a `SHA256SUMS` file. This uses the automatic per-run
 
 Before packaging, CI validates matching application versions, runs frontend
 regression tests, and audits JavaScript dependencies. The Linux job compiles
-the native Rust backend and tests validation, unsupported-schema rejection,
-pagination, and persistence across restart. Published assets include a
+the native Rust backend and tests validation, pagination, retryable storage opens,
+and persistence across restart. Browser interaction tests exercise the interface,
+and an installed Flatpak smoke test checks startup and storage initialization.
+Published assets include a
 `SHA256SUMS` file. An already published release cannot be overwritten by
 rerunning the workflow; create a new version instead.
 
@@ -43,6 +45,10 @@ The `linux-flatpak` job runs on `ubuntu-24.04`:
 Tauri backend (`cargo build --release --locked --features tauri/custom-protocol`) inside the SDK, then installs
 the `typedh` binary to `/app/bin`, the desktop entry, AppStream metadata, and
 the hicolor icons.
+
+`/app/bin/typedh` is a small launcher for `/app/bin/typedh-bin`. It selects
+WebKit's non-DMA-BUF renderer by default for Wayland/NVIDIA reliability; it
+honors an explicit `WEBKIT_DISABLE_DMABUF_RENDERER` value supplied by the user.
 
 The sandbox grants only display/GPU access (`ipc`, `fallback-x11`,
 `wayland`, `dri`). No network and no host filesystem access is granted to the

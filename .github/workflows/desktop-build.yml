@@ -30,14 +30,21 @@ jobs:
           node-version: 22
       - name: Validate application and tag versions
         run: node scripts/check-release.mjs
+      - name: Install JavaScript dependencies
+        run: |
+          npm ci
+          npm --prefix frontend ci
       - name: Frontend regression tests
         run: node --experimental-strip-types --test "frontend/tests/*.test.mjs"
       - name: Audit JavaScript dependencies
         run: |
-          npm ci
-          npm --prefix frontend ci
           npm audit --audit-level=high
           npm --prefix frontend audit --audit-level=high
+      - name: Browser interaction regression tests
+        run: |
+          npm --prefix frontend install --no-save --package-lock=false @playwright/test@1.58.2
+          npm --prefix frontend exec -- playwright install --with-deps chromium
+          npm --prefix frontend exec -- playwright test --config frontend/playwright.config.ts
 
   linux-flatpak:
     name: Linux Flatpak package
@@ -50,7 +57,7 @@ jobs:
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+          sudo apt-get install -y flatpak flatpak-builder libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xvfb
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
@@ -83,6 +90,20 @@ jobs:
         run: |
           chmod +x packaging/flatpak/build-flatpak.sh
           ./packaging/flatpak/build-flatpak.sh
+
+      - name: Installed Flatpak startup smoke test
+        run: |
+          flatpak install --user -y dist/typedh-*-x86_64.flatpak
+          set +e
+          xvfb-run -a dbus-run-session -- timeout 20s flatpak run --user --nosocket=wayland --socket=x11 --env=GDK_BACKEND=x11 --env=LIBGL_ALWAYS_SOFTWARE=1 io.github.exolithelabs.typedh > /tmp/typedh-startup.log 2>&1
+          status=$?
+          set -e
+          cat /tmp/typedh-startup.log
+          if [[ "$status" != 124 ]]; then
+            echo "Application exited during startup (status $status)" >&2
+            exit 1
+          fi
+          test -f "$HOME/.var/app/io.github.exolithelabs.typedh/data/io.github.exolithelabs.typedh/progress.sqlite3"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:

@@ -11,5 +11,6 @@ network or host filesystem access. It exposes a small set of typed
 IPC commands to the local webview, with no HTTP listener or shell plugin. Rust
 validates inputs and uses parameterized SQLite queries in the OS user-data
 directory. The database is not encrypted; security depends on the OS user account
-and filesystem permissions. Legacy development databases are not migrated or
-automatically backed up; unsupported schemas are rejected.
+and filesystem permissions. The pre-launch rewrite uses a fresh database schema;
+earlier development databases are not read or rewritten. Unexpected formats are
+rejected rather than automatically reset.

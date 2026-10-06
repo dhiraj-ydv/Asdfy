@@ -1,13 +1,10 @@
 <script setup lang="ts">
-const props = defineProps<{
+import { fingerColors } from '../../domain/keyboard';
+
+defineProps<{
   targetFinger: number;
 }>();
 
-const fingerColors = [
-  '#cbd5e1', // Thumb
-  '#fda4af', '#fbbf24', '#fde047', '#a7f3d0', // Left
-  '#99f6e4', '#bae6fd', '#c7d2fe', '#ddd6fe'  // Right
-];
 </script>
 
 <template>

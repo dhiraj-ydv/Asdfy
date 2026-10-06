@@ -1,4 +1,4 @@
-// Stable positions determine built-in lesson IDs. Never reorder existing entries.
+// Lesson content is data, separate from application and persistence logic.
 pub const LESSONS: &[(&str, &str, i32)] = &[
     ("Home Row - Basic", "arst neio", 1),
     ("Home Row - DH Focus", "astg neio m", 1),

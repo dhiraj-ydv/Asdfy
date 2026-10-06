@@ -98,7 +98,7 @@ run `flatpak install --user` with the newer `.flatpak` bundle file or URL
 ## User data and privacy
 
 On first launch, the desktop application creates its data directory for the
-current OS user. The backend creates `colemak.db` there and seeds the built-in
+current OS user. The backend creates `progress.sqlite3` there and seeds the built-in
 lessons. Later launches reuse that database. Different OS users have separate
 progress; there is no cloud synchronization or online login.
 
@@ -114,24 +114,27 @@ so normal app startup does not store progress in the repository or install folde
 Database location for the application ID
 `io.github.exolithelabs.typedh`:
 
-Host path `~/.var/app/io.github.exolithelabs.typedh/data/io.github.exolithelabs.typedh/colemak.db`
-(sandbox `~/.local/share/io.github.exolithelabs.typedh/colemak.db`).
+`~/.var/app/io.github.exolithelabs.typedh/data/io.github.exolithelabs.typedh/progress.sqlite3`
+on the host. Flatpak sets the sandbox's `XDG_DATA_HOME` to its private data directory.
 
 Tauri resolves the exact path from the OS environment. The webview also stores
 small UI preferences, such as the selected lesson, in its local storage. Those
 preferences are separate from the SQLite progress database.
 
 To back up progress, fully exit the app, then copy the database
-directory somewhere safe. SQLite may also create `colemak.db-wal` and
-`colemak.db-shm` companion files; do not delete them while the app is running.
+directory somewhere safe. SQLite may also create `progress.sqlite3-wal` and
+`progress.sqlite3-shm` companion files; do not delete them while the app is running.
 Keeping the same application ID lets subsequent versions locate the existing
 database. Back up your progress before upgrading a prerelease.
 
 Fresh installs create a native SQLite database automatically. Unsupported
 database schemas are rejected without rewriting their contents. To start fresh,
-close the app and move `colemak.db` and its `-wal`/`-shm` files out of the
+close the app and move `progress.sqlite3` and its `-wal`/`-shm` files out of the
 app-data folder, then restart. Current native databases retain progress across
 restarts. History loads newest first in pages of 100 results.
+
+The pre-launch rewrite starts with a fresh schema. Earlier development databases
+are not imported, modified, or deleted; no backward-compatibility layer is included.
 
 ## Architecture
 
@@ -155,8 +158,20 @@ automatically, and loading/save failures are shown in the interface.
 Project layout:
 
 ```text
-frontend/           Vue interface (own npm project: frontend/package.json)
-src-tauri/          Rust commands, SQLite backend, tests, and desktop configuration
+frontend/src/
+  domain/           Plain TypeScript exercise state, models, and keyboard mapping
+  services/         Typed desktop client and optional UI preferences
+  composables/      App coordination and DOM typing lifecycle
+  shell/            Navigation drawer
+  features/         Practice, custom text, history, and updates views
+  styles/           Shared visual theme
+frontend/tests/     Domain, command boundary, and app-state regression tests
+frontend/e2e/       Browser interaction tests with a mocked native boundary
+src-tauri/src/
+  content/          Built-in lesson text
+  models.rs         Command payloads and validation
+  commands.rs       Thin asynchronous IPC handlers
+  storage/          SQLite repository, schema, and persistence tests
 scripts/            Release version checks
 packaging/flatpak/ Flatpak manifest, desktop entry, AppStream metadata, bundle script
 .github/            Build/release workflow and Dependabot configuration
@@ -169,8 +184,8 @@ frontend as a separate project (`beforeBuildCommand: npm --prefix frontend run
 build`, `frontendDist: ../frontend/dist` in `src-tauri/tauri.conf.json`), and
 CI installs/caches/audits both (`npm ci` plus `npm --prefix frontend ci`).
 Keep `package.json` / `package-lock.json` and `frontend/package.json` /
-`frontend/package-lock.json` in sync; the release check fails the build when
-versions disagree.
+`frontend/package-lock.json` in sync. The release check validates root app,
+Rust, Tauri, and AppStream versions; the private frontend package has its own version.
 
 ## GitHub builds and releases
 
@@ -208,7 +223,9 @@ After the Linux job passes, GitHub Actions attaches the package and publishes
 the prerelease automatically. The release job uses GitHub's automatic token.
 The workflow checks that version files and tags agree, runs frontend regression
 tests and JavaScript dependency audits, and tests the native Rust backend's
-validation, schema rejection, history pagination, and persistence. Actions are
+validation, history pagination, and persistence. Browser tests cover completing,
+repeating, navigating, and custom practice; a packaged startup check verifies
+the installed Flatpak stays open and initializes storage. Actions are
 pinned to commit IDs. Published releases cannot be overwritten by
 a rerun; use a new version tag. Releases include `SHA256SUMS` for the package.
 
@@ -231,6 +248,14 @@ The frontend calls Tauri commands to connect to the local backend; running Vite
 alone in a browser is not a complete desktop-app preview. Development launches
 store progress in a `development/` subdirectory of the app-data directory,
 separate from installed release builds.
+
+The Flatpak launcher disables WebKit's DMA-BUF renderer by default to avoid the
+Wayland protocol failure observed on this NVIDIA system. It does not change your
+desktop settings. To explicitly opt into that renderer for diagnosis:
+
+```bash
+flatpak run --env=WEBKIT_DISABLE_DMABUF_RENDERER=0 io.github.exolithelabs.typedh
+```
 
 To build the Flatpak bundle locally instead, install Flatpak and
 flatpak-builder, add the Flathub remote, install the GNOME 49
