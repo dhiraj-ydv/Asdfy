@@ -2,21 +2,8 @@ use super::*;
 use crate::content::LESSONS;
 use crate::models::{KeyStat, ProgressInput};
 use rusqlite::Connection;
-use std::{collections::HashSet, fs, path::Path};
+use std::{collections::HashSet, fs};
 use tempfile::tempdir;
-
-const VERSION_1_SCHEMA: &str = "
-CREATE TABLE lessons (id INTEGER PRIMARY KEY, title TEXT NOT NULL, content TEXT NOT NULL, level INTEGER NOT NULL);
-CREATE TABLE results (
-    id INTEGER PRIMARY KEY,
-    username TEXT NOT NULL CHECK(length(username) BETWEEN 1 AND 80),
-    lesson_id INTEGER NOT NULL REFERENCES lessons(id),
-    wpm REAL NOT NULL CHECK(wpm BETWEEN 0 AND 1000),
-    accuracy REAL NOT NULL CHECK(accuracy BETWEEN 0 AND 100),
-    completed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
-);
-CREATE INDEX results_by_user ON results(username, id DESC);
-PRAGMA user_version = 1;";
 
 fn session(mode: &str, lesson_id: Option<i64>, wpm: f64) -> ProgressInput {
     ProgressInput {
@@ -33,19 +20,11 @@ fn key(symbol: &str, hits: i64, misses: i64) -> KeyStat {
     KeyStat { key: symbol.into(), hits, misses, time_ms: hits * 200 }
 }
 
-fn backups(directory: &Path) -> Vec<String> {
-    fs::read_dir(directory).unwrap()
-        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
-        .filter(|name| name.starts_with("progress.v1-backup-"))
-        .collect()
-}
-
 #[test]
 fn catalog_is_consistent() {
     let mut ids = HashSet::new();
     for lesson in LESSONS {
         assert!(ids.insert(lesson.id), "duplicate lesson {}", lesson.id);
-        assert!(lesson.id > 100, "lesson ids 1–28 and 999 are reserved for version 1 data");
         assert!(["keys", "words", "caps", "punctuation", "numbers", "text"].contains(&lesson.kind));
         assert_eq!(lesson.kind == "text", !lesson.content.is_empty());
         assert_eq!(lesson.kind == "keys", !lesson.keys.is_empty());
@@ -101,7 +80,7 @@ fn invalid_sessions_never_create_results() {
     let directory = tempdir().unwrap();
     let mut repository = Repository::open(directory.path()).unwrap();
     for speed in [f64::NAN, f64::INFINITY, -1.0, 1001.0] { assert!(repository.save(lesson(speed)).is_err()); }
-    for id in [-1, 0, 1, 28, 999, i64::MAX] { assert!(repository.save(session("lesson", Some(id), 20.0)).is_err()); }
+    for id in [-1, 0, 999, i64::MAX] { assert!(repository.save(session("lesson", Some(id), 20.0)).is_err()); }
     assert!(repository.save(session("lesson", None, 20.0)).is_err());
     assert!(repository.save(session("custom", Some(LESSONS[0].id), 20.0)).is_err());
     assert!(repository.save(session("race", None, 20.0)).is_err());
@@ -159,39 +138,6 @@ fn payloads_are_strict_and_storage_open_can_be_retried() {
 }
 
 #[test]
-fn version_1_database_is_backed_up_then_migrated_once() {
-    let directory = tempdir().unwrap();
-    {
-        let connection = Connection::open(directory.path().join("progress.sqlite3")).unwrap();
-        connection.execute_batch(VERSION_1_SCHEMA).unwrap();
-        connection.execute_batch(
-            "INSERT INTO lessons VALUES (1,'Home Row - Basic','arst neio',1),(999,'Custom Practice','',99);
-             INSERT INTO results(username,lesson_id,wpm,accuracy) VALUES ('User1',1,30,95),('User1',999,40,90);",
-        ).unwrap();
-    }
-    let mut repository = Repository::open(directory.path()).unwrap();
-    let history = repository.history("User1", 100, None).unwrap();
-    assert_eq!(history.len(), 2);
-    assert_eq!((history[0].mode.as_str(), history[0].lesson_id, history[0].wpm), ("custom", None, 40.0));
-    assert_eq!((history[1].mode.as_str(), history[1].lesson_id), ("lesson", Some(1)));
-    assert_eq!(history[1].lesson_title.as_deref(), Some("Home Row - Basic"));
-    assert_eq!(history[1].duration_ms, None);
-    repository.save(lesson(50.0)).unwrap();
-    assert_eq!(repository.summary("User1").unwrap().sessions, 3);
-
-    let saved = backups(directory.path());
-    assert_eq!(saved.len(), 1);
-    let backup = Connection::open(directory.path().join(&saved[0])).unwrap();
-    let version: i32 = backup.pragma_query_value(None, "user_version", |row| row.get(0)).unwrap();
-    let rows: i64 = backup.query_row("SELECT count(*) FROM results WHERE lesson_id IN (1, 999)", [], |row| row.get(0)).unwrap();
-    assert_eq!((version, rows), (1, 2));
-
-    drop(repository);
-    Repository::open(directory.path()).unwrap();
-    assert_eq!(backups(directory.path()).len(), 1);
-}
-
-#[test]
 fn unknown_database_formats_are_left_unchanged() {
     let directory = tempdir().unwrap();
     let path = directory.path().join("progress.sqlite3");
@@ -199,15 +145,4 @@ fn unknown_database_formats_are_left_unchanged() {
     let before = fs::read(&path).unwrap();
     assert!(Repository::open(directory.path()).is_err());
     assert_eq!(fs::read(&path).unwrap(), before);
-    assert!(backups(directory.path()).is_empty());
-}
-
-#[test]
-fn previous_development_database_is_not_read_or_changed() {
-    let directory = tempdir().unwrap();
-    let previous = directory.path().join("colemak.db");
-    fs::write(&previous, b"previous development data").unwrap();
-    Repository::open(directory.path()).unwrap();
-    assert_eq!(fs::read(previous).unwrap(), b"previous development data");
-    assert!(directory.path().join("progress.sqlite3").exists());
 }

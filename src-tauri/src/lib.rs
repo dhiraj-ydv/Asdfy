@@ -25,7 +25,8 @@ pub fn run() {
             commands::stop_application,
             commands::restart_application,
             commands::app_version,
+            commands::data_location,
         ])
         .run(tauri::generate_context!())
-        .expect("TypeDH could not initialize its desktop window");
+        .expect("Asdfy could not initialize its desktop window");
 }

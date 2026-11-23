@@ -4,9 +4,9 @@ import { useTutor } from '../src/composables/useTutor.ts';
 import { seededRandom } from '../src/domain/generator.ts';
 
 const lessons = [
-  { id: 101, stage: 'Home row', title: 'First', kind: 'keys', keys: 'arstneio', content: '' },
-  { id: 102, stage: 'Home row', title: 'Second', kind: 'keys', keys: 'gm', content: '' },
-  { id: 117, stage: 'Text', title: 'Passage', kind: 'text', keys: '', content: 'Fixed.' },
+  { id: 1, stage: 'Home row', title: 'First', kind: 'keys', keys: 'asdfjkl', content: '' },
+  { id: 2, stage: 'Home row', title: 'Second', kind: 'keys', keys: 'gh', content: '' },
+  { id: 18, stage: 'Text', title: 'Passage', kind: 'text', keys: '', content: 'Fixed.' },
 ];
 const outcome = { wpm: 20, rawWpm: 22, accuracy: 95, durationMs: 3000, characters: 10, errors: 1, keys: [] };
 function summary(overrides = {}) {
@@ -15,7 +15,8 @@ function summary(overrides = {}) {
 function client(overrides = {}) {
   return {
     lessons: async () => lessons, history: async () => [], summary: async () => summary(), save: async () => {},
-    close: async () => {}, restart: async () => {}, version: async () => '0.1.2', ...overrides,
+    close: async () => {}, restart: async () => {}, version: async () => '0.1.2', dataLocation: async () => '/data',
+    ...overrides,
   };
 }
 function deferred() {
@@ -30,8 +31,8 @@ test('startup is retryable and the course points at the first unpassed lesson', 
   const app = useTutor(client({
     lessons: async () => { if (fail) throw new Error(); return lessons; },
     summary: async () => summary({ lessons: [
-      { lesson_id: 101, best_wpm: 30, best_accuracy: 96, attempts: 2 },
-      { lesson_id: 102, best_wpm: 25, best_accuracy: 80, attempts: 1 },
+      { lesson_id: 1, best_wpm: 30, best_accuracy: 96, attempts: 2 },
+      { lesson_id: 2, best_wpm: 25, best_accuracy: 80, attempts: 1 },
     ] }),
   }), seededRandom(1));
   await app.load();
@@ -40,8 +41,8 @@ test('startup is retryable and the course points at the first unpassed lesson', 
   fail = false;
   await app.load();
   assert.equal(app.error.value, '');
-  assert.equal(app.upNext.value.id, 102);
-  assert.equal(app.learned.value, 'arstneiogm');
+  assert.equal(app.upNext.value.id, 2);
+  assert.equal(app.learned.value, 'asdfjklgh');
 });
 
 test('storage failures keep lessons usable and report a retryable error', async () => {
@@ -58,7 +59,7 @@ test('sessions open in their own section and survive navigation', async () => {
   assert.equal(app.view.value, 'learn');
   assert.equal(app.session.value.text, 'Fixed.');
   app.navigate('stats');
-  assert.equal(app.session.value.lesson.id, 117);
+  assert.equal(app.session.value.lesson.id, 18);
   app.startTest({ seconds: 15, punctuation: false, numbers: false });
   assert.equal(app.view.value, 'test');
   assert.equal(app.session.value.timeLimitMs, 15_000);
@@ -85,7 +86,7 @@ test('completion is saved once with session details and repeating remounts the e
   assert.equal(saved.length, 1);
   assert.equal(app.saving.value, true);
   assert.deepEqual(saved[0], {
-    username: 'User1', mode: 'lesson', lesson_id: 101, wpm: 20, raw_wpm: 22, accuracy: 95,
+    username: 'User1', mode: 'lesson', lesson_id: 1, wpm: 20, raw_wpm: 22, accuracy: 95,
     duration_ms: 3000, characters: 10, errors: 1, keys: [],
   });
   pending.resolve();
@@ -102,7 +103,7 @@ test('completion is saved once with session details and repeating remounts the e
   assert.equal(app.result.value, null);
   assert.equal(app.hasNextLesson.value, true);
   app.next();
-  assert.equal(app.session.value.lesson.id, 102);
+  assert.equal(app.session.value.lesson.id, 2);
 });
 
 test('custom sessions are saved without a lesson and next returns to the editor', async () => {

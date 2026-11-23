@@ -20,7 +20,7 @@ interface Cap {
   shifted?: string;
   width: number;
   finger: number;
-  home?: boolean;
+  bump?: boolean;
   modifier?: boolean;
 }
 
@@ -28,7 +28,7 @@ function cap(key: KeyCap, width = 1): Cap {
   const letter = /^[a-z]$/u.test(key.key);
   return {
     id: key.key, label: letter ? key.key.toUpperCase() : key.key, shifted: letter ? undefined : key.shifted,
-    width, finger: key.finger, home: key.home,
+    width, finger: key.finger, bump: key.bump,
   };
 }
 
@@ -69,7 +69,7 @@ function style(key: Cap) {
           :class="{
             target: key.id === targetKey || key.id === targetShift,
             pressed: key.id === pressed,
-            home: key.home,
+            bump: key.bump,
             modifier: key.modifier,
             measured: heat?.[key.id] !== undefined,
           }"
@@ -118,7 +118,7 @@ function style(key: Cap) {
 .key.modifier { color: var(--faint); font-size: calc(var(--u) * 0.24); font-weight: 600; }
 .shifted { font-size: 0.72em; color: var(--faint); margin-bottom: 2px; }
 
-.key.home::after {
+.key.bump::after {
   content: '';
   position: absolute;
   bottom: 18%;

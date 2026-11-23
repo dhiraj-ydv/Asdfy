@@ -17,13 +17,14 @@ test('desktop boundary sends bounded structured commands', async () => {
   await client.close();
   await client.restart();
   await client.version();
+  await client.dataLocation();
   assert.deepEqual(calls, [
     ['get_lessons', undefined],
     ['get_progress', { username: 'User1', limit: 100, before: null }],
     ['get_progress', { username: 'User1', limit: 100, before: 42 }],
     ['get_summary', { username: 'User1' }],
     ['save_progress', { input }], ['stop_application', undefined],
-    ['restart_application', undefined], ['app_version', undefined],
+    ['restart_application', undefined], ['app_version', undefined], ['data_location', undefined],
   ]);
 });
 
@@ -31,7 +32,7 @@ test('save failures propagate without retrying a potentially committed write', a
   let writes = 0;
   const client = createClient(async () => { writes++; throw new Error('Storage unavailable'); });
   await assert.rejects(client.save({
-    username: 'User1', mode: 'lesson', lesson_id: 101, wpm: 42, raw_wpm: 42, accuracy: 98,
+    username: 'User1', mode: 'lesson', lesson_id: 1, wpm: 42, raw_wpm: 42, accuracy: 98,
     duration_ms: 1000, characters: 10, errors: 0, keys: [],
   }));
   assert.equal(writes, 1);

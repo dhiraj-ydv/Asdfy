@@ -31,4 +31,4 @@ CREATE TABLE IF NOT EXISTS key_stats (
     PRIMARY KEY(username, symbol)
 ) WITHOUT ROWID;
 
-PRAGMA user_version = 2;
+PRAGMA user_version = 1;

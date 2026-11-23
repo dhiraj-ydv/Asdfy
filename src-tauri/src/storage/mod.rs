@@ -1,7 +1,7 @@
 mod repository;
 pub use repository::Repository;
 
-use std::{path::PathBuf, sync::Mutex};
+use std::{path::{Path, PathBuf}, sync::Mutex};
 use crate::models::Result;
 
 pub struct Storage {
@@ -12,6 +12,10 @@ pub struct Storage {
 impl Storage {
     pub fn new(directory: PathBuf) -> Self {
         Self { directory, repository: Mutex::new(None) }
+    }
+
+    pub fn directory(&self) -> &Path {
+        &self.directory
     }
 
     pub fn access<T>(&self, operation: impl FnOnce(&mut Repository) -> Result<T>) -> Result<T> {

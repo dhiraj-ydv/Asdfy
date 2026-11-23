@@ -2,9 +2,8 @@
 import { settings } from '../../services/settings';
 import Icon from '../../shell/Icon.vue';
 
-defineProps<{ version: string; error: string }>();
+defineProps<{ version: string; error: string; dataLocation: string }>();
 const emit = defineEmits<{ control: [action: 'restart' | 'close'] }>();
-const DATA_PATH = '~/.var/app/io.github.exolithelabs.typedh/data/io.github.exolithelabs.typedh/';
 </script>
 
 <template>
@@ -55,17 +54,18 @@ const DATA_PATH = '~/.var/app/io.github.exolithelabs.typedh/data/io.github.exoli
 
     <div class="card section">
       <h2>Keyboard layout</h2>
-      <p class="muted">TypeDH does not change your keyboard layout. Enable Colemak-DH (ANSI) in your desktop's
-        keyboard settings; the tutor checks the characters your keyboard produces.</p>
+      <p class="muted">Lessons and the on-screen keyboard use the US QWERTY layout. Asdfy checks the characters
+        your keyboard produces and does not change your system layout, so set it to English (US) for the guides to match.</p>
     </div>
 
     <div class="card section">
       <h2>About and updates</h2>
-      <p v-if="version">TypeDH version {{ version }}</p>
+      <p v-if="version">Asdfy version {{ version }}</p>
       <p v-if="error" class="error" role="alert">{{ error }}</p>
-      <p class="muted">Update by installing a newer <code>.flatpak</code> bundle from GitHub Releases with
-        <code>flatpak install --user</code>. Lessons and progress are kept.</p>
-      <p class="muted">Progress is stored in <code>{{ DATA_PATH }}</code>. Quit the app before copying it as a backup.</p>
+      <p class="muted">To update, download the newer release from GitHub Releases and install it over this one.
+        Lessons and progress are kept.</p>
+      <p v-if="dataLocation" class="muted">Progress is stored in <code>{{ dataLocation }}</code>. Quit the app before
+        copying that folder as a backup.</p>
       <div class="controls">
         <button class="btn btn-secondary" @click="emit('control', 'restart')"><Icon name="restart" />Restart app</button>
         <button class="btn btn-ghost btn-danger" @click="emit('control', 'close')"><Icon name="power" />Quit app</button>

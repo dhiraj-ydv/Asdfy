@@ -1,5 +1,6 @@
 // Common English words, roughly most frequent first. Lowercase letters only; drills
-// filter this list to the letters a learner already knows.
+// filter this list to the letters a learner already knows, so the home-row block
+// below keeps the first lessons in real words.
 const SOURCE = `
 the be to of and a in that have it for not on with he as you do at this but his by from
 they we say her she or an will my one all would there their what so up out if about who
@@ -66,6 +67,9 @@ jam jar jet job join joke joy judge juice jump jungle just
 queen quest quick quiet quite quote quality quarter question require square equal
 box fix fox mix six tax wax next text extra exact exam expert explain express
 zero zone zoo size prize lazy crazy frozen dozen amaze breeze freeze
+add ads adds alas asks dad dads fad fads falls flask flasks lad lads lass sad salad salads alfalfa
+glad gas had has hall halls half lag lags flag flags gal ash dash gash lash flash glass sag saga
+shall slash hash
 `;
 
 export const WORDS: readonly string[] = Array.from(new Set(SOURCE.split(/\s+/u).filter(word => /^[a-z]+$/u.test(word))));

@@ -1,5 +1,5 @@
 // Lesson content is data, separate from application and persistence logic.
-// Identifiers start at 101: version 1 databases keep lessons 1–28 so old results keep their titles.
+// The course follows the US QWERTY layout, starting from the home row.
 use crate::models::Lesson;
 
 const fn lesson(
@@ -14,40 +14,41 @@ const fn lesson(
 }
 
 const HOME: &str = "Home row";
-const INDEX: &str = "Index reach";
+const REACH: &str = "First reaches";
 const TOP: &str = "Top row";
-const ALPHABET: &str = "Full alphabet";
+const BOTTOM: &str = "Bottom row";
 const SYMBOLS: &str = "Shift, symbols and numbers";
 const TEXT: &str = "Real text";
 
 pub const LESSONS: &[Lesson] = &[
-    lesson(101, HOME, "Home row anchors", "keys", "arstneio", ""),
-    lesson(102, HOME, "Inner reach: G and M", "keys", "gm", ""),
-    lesson(103, HOME, "Home row words", "words", "", ""),
-    lesson(104, INDEX, "Bottom index: D and H", "keys", "dh", ""),
-    lesson(105, INDEX, "C and K", "keys", "ck", ""),
-    lesson(106, INDEX, "Review: home and bottom", "words", "", ""),
-    lesson(107, TOP, "L and U", "keys", "lu", ""),
-    lesson(108, TOP, "F and P", "keys", "fp", ""),
-    lesson(109, TOP, "W and Y", "keys", "wy", ""),
-    lesson(110, TOP, "Review: top row", "words", "", ""),
-    lesson(111, ALPHABET, "B and V", "keys", "bv", ""),
-    lesson(112, ALPHABET, "Rare letters: J, Q, X and Z", "keys", "jqxz", ""),
-    lesson(113, ALPHABET, "Review: every letter", "words", "", ""),
-    lesson(114, SYMBOLS, "Capital letters", "caps", "", ""),
-    lesson(115, SYMBOLS, "Punctuation", "punctuation", "", ""),
-    lesson(116, SYMBOLS, "Numbers", "numbers", "", ""),
-    lesson(117, TEXT, "Prose: First light", "text", "",
+    lesson(1, HOME, "Home row anchors", "keys", "asdfjkl", ""),
+    lesson(2, HOME, "Inner reach: G and H", "keys", "gh", ""),
+    lesson(3, HOME, "Home row words", "words", "", ""),
+    lesson(4, REACH, "E and I", "keys", "ei", ""),
+    lesson(5, REACH, "R and U", "keys", "ru", ""),
+    lesson(6, REACH, "T and O", "keys", "to", ""),
+    lesson(7, REACH, "Review: home row and reaches", "words", "", ""),
+    lesson(8, TOP, "W and Y", "keys", "wy", ""),
+    lesson(9, TOP, "P and Q", "keys", "pq", ""),
+    lesson(10, TOP, "Review: top row", "words", "", ""),
+    lesson(11, BOTTOM, "N and M", "keys", "nm", ""),
+    lesson(12, BOTTOM, "C and V", "keys", "cv", ""),
+    lesson(13, BOTTOM, "B, X and Z", "keys", "bxz", ""),
+    lesson(14, BOTTOM, "Review: every letter", "words", "", ""),
+    lesson(15, SYMBOLS, "Capital letters", "caps", "", ""),
+    lesson(16, SYMBOLS, "Punctuation", "punctuation", "", ""),
+    lesson(17, SYMBOLS, "Numbers", "numbers", "", ""),
+    lesson(18, TEXT, "Prose: First light", "text", "",
         "The first light crept over the hills and found the village still asleep. A kettle hissed in a quiet kitchen, a dog stretched by the door, and somewhere a radio began to hum an old song. By the time the baker opened the shutters, the street smelled of bread and rain."),
-    lesson(118, TEXT, "Prose: Rhythm", "text", "",
-        "Good typing is less about speed than rhythm. Keep your wrists relaxed, let each finger return home, and trust the layout. Speed arrives on its own once the motions stop needing thought, so practice a little every day rather than a lot once a week."),
-    lesson(119, TEXT, "Prose: Gettysburg", "text", "",
+    lesson(19, TEXT, "Prose: Rhythm", "text", "",
+        "Good typing is less about speed than rhythm. Keep your wrists relaxed, let each finger return home, and trust the keyboard. Speed arrives on its own once the motions stop needing thought, so practice a little every day rather than a lot once a week."),
+    lesson(20, TEXT, "Prose: Gettysburg", "text", "",
         "Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived in Liberty, and dedicated to the proposition that all men are created equal."),
-    lesson(120, TEXT, "Code: Python", "text", "",
+    lesson(21, TEXT, "Code: Python", "text", "",
         "def mean(values: list[float]) -> float: return sum(values) / len(values) if values else 0.0"),
-    lesson(121, TEXT, "Code: Rust", "text", "",
+    lesson(22, TEXT, "Code: Rust", "text", "",
         "for (index, word) in words.iter().enumerate() { println!(\"{index}: {word}\"); }"),
-    lesson(122, TEXT, "Code: Shell", "text", "",
+    lesson(23, TEXT, "Code: Shell", "text", "",
         "grep -rn \"TODO\" src/ | sort -u > todo.txt && wc -l todo.txt"),
 ];
 

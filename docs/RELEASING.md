@@ -2,118 +2,83 @@
 
 ## What CI produces
 
-The **Linux build** workflow runs on pull requests, pushes to `master`, version
-tags, and manual dispatches. It produces a single artifact:
+The **Desktop build** workflow (`.github/workflows/desktop-build.yml`) runs on
+pull requests, pushes to `master`, version tags, and manual dispatches. It
+produces three artifacts, each built on its own operating system:
 
-- a Flatpak single-file bundle `typedh-<version>-x86_64.flatpak`
-  for x86-64.
+| Artifact | Runner | File |
+| --- | --- | --- |
+| `Asdfy-Linux-x86_64` | `ubuntu-22.04` | `Asdfy_<version>_amd64.AppImage` |
+| `Asdfy-Windows-x86_64` | `windows-2022` | `Asdfy_<version>_x64-setup.exe` (NSIS) |
+| `Asdfy-macOS-universal` | `macos-14` | `Asdfy_<version>_universal.dmg` |
 
-Ordinary builds retain this as a workflow artifact for 14 days. Pushing a
-version tag publishes a GitHub prerelease and attaches the Flatpak bundle
-together with a `SHA256SUMS` file. This uses the automatic per-run
-`GITHUB_TOKEN`; no personal access token is required.
+Ordinary builds retain these as workflow artifacts for 14 days. Pushing a
+version tag publishes a GitHub prerelease with all three packages and a
+`SHA256SUMS` file. This uses the automatic per-run `GITHUB_TOKEN`; no personal
+access token is required. The release job refuses to publish unless exactly
+three packages were built, and an already published release cannot be
+overwritten by rerunning the workflow; create a new version instead.
 
-Before packaging, CI validates matching application versions, runs frontend
-regression tests, and audits JavaScript dependencies. The Linux job compiles
-the native Rust backend and tests validation, pagination, retryable storage opens,
-and persistence across restart. Browser interaction tests exercise the interface,
-and an installed Flatpak smoke test checks startup and storage initialization.
-Published assets include a
-`SHA256SUMS` file. An already published release cannot be overwritten by
-rerunning the workflow; create a new version instead.
+## Jobs
 
-The Linux job builds the bundle with `flatpak-builder` inside the GNOME 49
-SDK container (`packaging/flatpak/build-flatpak.sh`), then exports a
-single-file `.flatpak` bundle with `flatpak build-bundle`.
+1. **Release and frontend checks** (`ubuntu-24.04`) validates matching
+   application versions and the fixed application ID, runs frontend regression
+   tests and the type check, audits JavaScript dependencies, and runs the
+   Playwright browser tests.
+2. **Package** (matrix: Linux, Windows, macOS) runs the Rust backend tests
+   (`cargo test --locked --lib`) on each platform, then
+   `npm run tauri -- build --bundles <format>`, which builds the frontend and the
+   release binary and bundles it:
+   - Linux installs the WebKitGTK 4.1 build prerequisites and `libfuse2`, builds
+     the AppImage, then starts it under Xvfb for 20 seconds and checks that it
+     stayed open and created
+     `~/.local/share/io.github.exolithelabs.asdfy/progress.sqlite3`.
+   - Windows builds the per-user NSIS installer (`installMode: currentUser`).
+   - macOS adds the `aarch64` and `x86_64` Rust targets and builds a
+     `universal-apple-darwin` disk image.
+3. **Publish GitHub prerelease** runs only for `v*` tags.
 
-## Linux Flatpak package
+Bundle settings live in the `bundle` section of `src-tauri/tauri.conf.json`.
 
-The `linux-flatpak` job runs on `ubuntu-24.04`:
+## Signing
 
-1. Install Flatpak, flatpak-builder, and the host Tauri test prerequisites
-   (`libwebkit2gtk-4.1-dev`, `libappindicator3-dev`, `librsvg2-dev`,
-   `patchelf`).
-2. Run the Rust backend tests on the host (`cargo test --locked
-   --manifest-path src-tauri/Cargo.toml --lib`).
-3. Install the GNOME platform/SDK (`org.gnome.Platform//49`,
-   `org.gnome.Sdk//49`) and the Rust/Node SDK extensions on branch `25.08` from Flathub.
-4. Run `packaging/flatpak/build-flatpak.sh`, producing
-   `dist/typedh-<version>-x86_64.flatpak`.
-
-`packaging/flatpak/io.github.exolithelabs.typedh.yml` builds the frontend
-(`npm --prefix frontend ci` plus `npm --prefix frontend run build`) and the
-Tauri backend (`cargo build --release --locked --features tauri/custom-protocol`) inside the SDK, then installs
-the `typedh` binary to `/app/bin`, the desktop entry, AppStream metadata, and
-the hicolor icons.
-
-`/app/bin/typedh` is a small launcher for `/app/bin/typedh-bin`. It selects
-WebKit's non-DMA-BUF renderer by default for Wayland/NVIDIA reliability; it
-honors an explicit `WEBKIT_DISABLE_DMABUF_RENDERER` value supplied by the user.
-
-The sandbox grants only display/GPU access (`ipc`, `fallback-x11`,
-`wayland`, `dri`). No network and no host filesystem access is granted to the
-installed app. Build-time networking downloads locked npm/Cargo dependencies;
-this manifest targets GitHub bundles, not an offline Flathub submission.
-
-Keep the app version in sync across `package.json`,
-`src-tauri/Cargo.toml`, `src-tauri/tauri.conf.json`, and
-`packaging/flatpak/io.github.exolithelabs.typedh.metainfo.xml` (enforced by
-`scripts/check-release.mjs`). The Tauri identifier must equal the Flatpak
-app ID `io.github.exolithelabs.typedh`.
-
-There is no Flathub publication path in this workflow. Updates are manual via
-`flatpak install` (see "Updates" below).
+Packages are not code-signed. macOS builds are ad-hoc signed
+(`signingIdentity: "-"`) so they run on Apple Silicon, but they are not
+notarized; Windows installers carry no Authenticode signature. The README
+documents the first-launch steps for both. Adding real signing later requires an
+Apple Developer ID certificate and notarization credentials, and a Windows code
+signing certificate, stored as GitHub Actions secrets and passed to the Tauri
+build step.
 
 ## Updates
 
-There is no in-app updater. The app's **Updates** view shows the installed
-version and points to GitHub Releases. To update, install the newer
-`.flatpak` bundle with `flatpak install --user`. The backend makes no HTTP requests.
+There is no in-app updater, and the app makes no HTTP requests. **Settings**
+shows the installed version. Users update by installing the newer package over
+the old one; the data folder is named after the application ID
+`io.github.exolithelabs.asdfy`, which `scripts/check-release.mjs` keeps fixed so
+progress survives upgrades.
 
 ## Creating a release candidate
 
 Ensure the version matches in `package.json`, `src-tauri/Cargo.toml`,
-`src-tauri/tauri.conf.json`,
-`packaging/flatpak/io.github.exolithelabs.typedh.metainfo.xml`, and their lockfiles,
-then push the commit and a matching unused version tag (for example, after
-bumping to 0.1.2):
+`src-tauri/tauri.conf.json`, and their lockfiles (enforced by
+`scripts/check-release.mjs`), then push the commit and a matching unused version
+tag (for example, after bumping to 0.2.0):
 
 ```bash
-git tag v0.1.2
-git push origin master v0.1.2
+git tag v0.2.0
+git push origin master v0.2.0
 ```
 
-After the Linux job passes, the workflow publishes the prerelease with its
-downloadable asset. Install-test the build (including an N → N+1 bundle
-reinstall where possible, confirming progress survives) before promoting it to
-a stable release.
+After all package jobs pass, the workflow publishes the prerelease with its
+downloadable assets. Install-test each package (including an N → N+1 upgrade
+where possible, confirming progress survives) before promoting it to a stable
+release.
 
 ## Before the first public release
 
-1. Review and install the CI artifact on a clean Linux virtual machine.
-2. Confirm the Flatpak bundle installs and updates via `flatpak install`.
+1. Install and launch each CI artifact on a clean machine: a Linux VM without
+   development packages, Windows 10/11, and both an Intel and an Apple Silicon Mac.
+2. Confirm upgrades keep progress on each platform.
 3. Enable GitHub private vulnerability reporting before making the repository
    public.
-
-Users install or update the Flatpak bundle with `flatpak install --user`. All three reach
-the same bundle; only how the file reaches `flatpak` differs:
-
-```bash
-flatpak install --user ./typedh-<version>-x86_64.flatpak
-```
-
-```bash
-flatpak install --user "https://github.com/dhiraj-ydv/typedh/releases/download/v0.1.2/typedh-0.1.2-x86_64.flatpak"
-```
-
-```bash
-curl -L -O "https://github.com/dhiraj-ydv/typedh/releases/download/v0.1.2/typedh-0.1.2-x86_64.flatpak"
-flatpak install --user ./typedh-0.1.2-x86_64.flatpak
-```
-
-Flatpak places the binary under `/app/bin`, the desktop entry, icons, and
-AppStream metadata in the sandbox, resolving the GNOME runtime from Flathub on
-first install. This path does not use Flathub auto-updates; updates are manual
-`flatpak install` runs against newer release files/URLs.
-
-The generated prerelease is suitable for testing.

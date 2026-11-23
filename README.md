@@ -1,91 +1,87 @@
-# TypeDH
+# Asdfy
 
 [Downloads](#downloads-and-installation) · [Usage](#using-the-app) · [User data](#user-data-and-privacy) · [Architecture](#architecture) · [GitHub workflow](#github-builds-and-releases) · [Development](#development) · [Support](#support-and-security) · [License](#license)
 
-**TypeDH — Colemak-DH typing tutor**, with a staged course that introduces
-keys a few at a time, smart practice aimed at your weakest keys, timed speed
-tests, custom text, live keyboard and finger guidance, and detailed local
-statistics. No account or cloud database is required.
+**Asdfy — touch-typing tutor** for the US QWERTY layout, with a staged course
+that introduces keys a few at a time, smart practice aimed at your weakest keys,
+timed speed tests, custom text, live keyboard and finger guidance, and detailed
+local statistics. No account or cloud database is required.
 
-[Download a release](https://github.com/dhiraj-ydv/typedh/releases) ·
-[View GitHub builds](https://github.com/dhiraj-ydv/typedh/actions/workflows/desktop-build.yml) ·
-[Report a bug](https://github.com/dhiraj-ydv/typedh/issues)
+[Download a release](https://github.com/exolithelabs/TypeDH/releases) ·
+[View GitHub builds](https://github.com/exolithelabs/TypeDH/actions/workflows/desktop-build.yml) ·
+[Report a bug](https://github.com/exolithelabs/TypeDH/issues)
 
 ## Downloads and installation
 
-Open [GitHub Releases](https://github.com/dhiraj-ydv/typedh/releases),
-choose a version, and expand **Assets**. The published package is a
-Flatpak single-file bundle for x86-64, installed with `flatpak install`.
+Open [GitHub Releases](https://github.com/exolithelabs/TypeDH/releases),
+choose a version, and expand **Assets**.
 
-| Download | Purpose |
+| Download | Platform |
 | --- | --- |
-| `typedh-<version>-x86_64.flatpak` | Flatpak bundle (`flatpak install`) |
+| `Asdfy_<version>_amd64.AppImage` | Linux x86-64 |
+| `Asdfy_<version>_x64-setup.exe` | Windows 10 and 11, x86-64 |
+| `Asdfy_<version>_universal.dmg` | macOS 10.15 or later, Intel and Apple Silicon |
+| `SHA256SUMS` | Checksums for the files above |
 
 The automatically generated **Source code** archives contain project sources,
 not installers. Installed users do not need development tools.
 
-### Linux (Flatpak bundle install)
+The packages are **not code-signed**, so each operating system warns on first
+launch. Download only from this repository's Releases page and, if you like,
+check the file against `SHA256SUMS` (`sha256sum -c SHA256SUMS --ignore-missing`).
 
-Install Flatpak itself through your distribution first (for example,
-`sudo pacman -S flatpak` on Arch, `sudo apt install flatpak` on Ubuntu),
-then add the Flathub remote once so the GNOME runtime can be resolved:
-
-```bash
-flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-```
-
-Install or update with `flatpak install` using the `.flatpak` bundle from
-GitHub Releases. The same command upgrades an older installed version when
-given a newer bundle file.
-
-#### 1. Download then install/update
-
-Download the `.flatpak` bundle from GitHub Releases (browser), then:
+### Linux (AppImage)
 
 ```bash
-flatpak install --user ./typedh-<version>-x86_64.flatpak
+chmod +x Asdfy_<version>_amd64.AppImage
+./Asdfy_<version>_amd64.AppImage
 ```
 
-#### 2. Direct URL install/update (no browser download)
+AppImages need FUSE 2 (`libfuse2`, called `fuse2` on Arch and `libfuse2t64` on
+Ubuntu 24.04). Without it, run with `--appimage-extract-and-run`. To add Asdfy to
+your application menu, use a tool such as Gear Lever or AppImageLauncher, or move
+the file somewhere permanent and create a desktop entry. To update, replace the
+file with the newer AppImage.
+
+WebKitGTK's DMA-BUF renderer can close Wayland windows on some NVIDIA systems, so
+Asdfy turns it off by default on Linux. To opt back in for diagnosis, start the app
+with `WEBKIT_DISABLE_DMABUF_RENDERER=0`.
+
+### Windows
+
+Run `Asdfy_<version>_x64-setup.exe`. It installs for the current user without
+administrator rights. Because the installer is unsigned, SmartScreen may show
+**Windows protected your PC**; choose **More info → Run anyway**. To update, run
+the newer installer. Uninstall from **Settings → Apps**.
+
+### macOS
+
+Open the `.dmg` and drag **Asdfy** to **Applications**. The app is ad-hoc signed
+but not notarized, so the first launch is blocked: Control-click (or right-click)
+the app, choose **Open**, then **Open** again. On recent macOS versions you may
+instead need **System Settings → Privacy & Security → Open Anyway**. If macOS
+reports the app as damaged, clear the download quarantine flag:
 
 ```bash
-flatpak install --user "https://github.com/dhiraj-ydv/typedh/releases/download/v0.1.2/typedh-0.1.2-x86_64.flatpak"
+xattr -dr com.apple.quarantine /Applications/Asdfy.app
 ```
 
-Replace `v0.1.2` / `0.1.2` with the version you want.
-
-#### 3. curl then flatpak install
-
-```bash
-curl -L -O "https://github.com/dhiraj-ydv/typedh/releases/download/v0.1.2/typedh-0.1.2-x86_64.flatpak"
-flatpak install --user ./typedh-0.1.2-x86_64.flatpak
-```
-
-All three are the same packaging method; only how the file reaches `flatpak`
-differs.
-
-Launch **TypeDH** from your application menu, or run
-`flatpak run io.github.exolithelabs.typedh` from a terminal. The app runs
-sandboxed on the GNOME 49 runtime with no network permission; the runtime is
-fetched from Flathub on first install when missing. The app is not published
-to Flathub; GitHub Releases is the distribution path. Updates are manual via
-`flatpak install` with a newer bundle file.
+To update, replace the app in **Applications** with the newer one.
 
 ### Updating
 
-Open **Settings** to see the installed version. To update,
-run `flatpak install --user` with the newer `.flatpak` bundle file or URL
-(see the Linux section). Your lessons and progress are kept.
+Open **Settings** to see the installed version. Install the newer release over
+the current one as described for your platform. Your lessons and progress are kept.
 
 ## Using the app
 
-1. Enable Colemak-DH (ANSI) in your operating system's keyboard settings. The
-   tutor reads your keyboard input; it does not change the system layout.
-2. **Learn** shows the course: six stages from the home row through the bottom
-   and top rows, the full alphabet, capitals, punctuation, numbers, and real
-   prose and code. Each lesson drills real words made only from letters you have
-   already learned. A lesson is passed at 90% accuracy; **Start lesson** /
-   **Continue lesson** always opens the first lesson you have not passed.
+1. Set your operating system's keyboard layout to English (US) QWERTY. Asdfy
+   reads the characters your keyboard sends; it does not change the system layout.
+2. **Learn** shows the course: six stages from the home row (A S D F, J K L)
+   through the first reaches, the top and bottom rows, capitals, punctuation,
+   numbers, and real prose and code. Each lesson drills real words made only from
+   letters you have already learned. A lesson is passed at 90% accuracy;
+   **Start lesson** / **Continue lesson** always opens the first lesson you have not passed.
 3. **Smart practice** ranks keys by how often you miss them and how long they
    take, then builds a drill around the three weakest. Choose letters learned so
    far or the full alphabet, and 25, 50, or 100 words.
@@ -103,8 +99,8 @@ run `flatpak install --user` with the newer `.flatpak` bundle file or URL
 7. **Statistics** shows totals, speed and accuracy trends, a per-key accuracy
    heatmap, your weakest keys, an activity calendar, and session history.
 8. **Settings** offers system, light, or dark theme; three typing text sizes;
-   stop on errors (the cursor waits for the correct key); and toggles for the
-   keyboard and finger guide. Settings are remembered on this computer.
+   stop on errors (the cursor waits for the correct key); toggles for the
+   keyboard and finger guide; and where your progress is stored.
 
 | Shortcut | Action |
 | --- | --- |
@@ -114,50 +110,37 @@ run `flatpak install --user` with the newer `.flatpak` bundle file or URL
 
 ## User data and privacy
 
-On first launch, the desktop application creates its data directory for the
-current OS user. The backend creates `progress.sqlite3` there and registers the
-built-in lesson titles. Later launches reuse that database. Each completed
-session stores its mode, lesson, speed, raw speed, accuracy, duration, character
-and mistake counts, and adds per-key hit, miss, and timing totals. Different OS users have separate
-progress; there is no cloud synchronization or online login.
+On first launch, Asdfy creates its data folder for the current OS user and a
+SQLite database, `progress.sqlite3`, inside it. Each completed session stores
+its mode, lesson, speed, raw speed, accuracy, duration, character and mistake
+counts, and adds per-key hit, miss, and timing totals. Different OS users have
+separate progress; there is no cloud synchronization or online login.
 
-TypeDH is pre-launch and distributed only as a Flatpak application with ID
-`io.github.exolithelabs.typedh`. No migration from earlier development
-packages is required.
+| Platform | Data folder |
+| --- | --- |
+| Linux | `~/.local/share/io.github.exolithelabs.asdfy/` (or `$XDG_DATA_HOME/io.github.exolithelabs.asdfy/`) |
+| Windows | `%APPDATA%\io.github.exolithelabs.asdfy\` |
+| macOS | `~/Library/Application Support/io.github.exolithelabs.asdfy/` |
 
-The source repository contains code and bundled assets. Runtime databases,
-generated binaries, dependency directories, and build output are ignored by Git.
-The installed application passes an explicit per-user data path to the backend,
-so normal app startup does not store progress in the repository or install folder.
+**Settings** shows the exact folder on your computer. The application ID
+`io.github.exolithelabs.asdfy` names these folders, so it never changes between
+versions. On Linux and macOS the folder and database are readable only by your
+user. The webview also stores small UI preferences (theme, text size, and
+practice toggles) in its own local storage, separate from the progress database.
 
-Database location for the application ID
-`io.github.exolithelabs.typedh`:
+To back up progress, fully quit the app, then copy the data folder somewhere
+safe. SQLite may also create `progress.sqlite3-wal` and `progress.sqlite3-shm`
+companion files; do not delete them while the app is running.
 
-`~/.var/app/io.github.exolithelabs.typedh/data/io.github.exolithelabs.typedh/progress.sqlite3`
-on the host. Flatpak sets the sandbox's `XDG_DATA_HOME` to its private data directory.
+Databases in an unknown format, such as one written by a newer release, are
+rejected without being modified. To start fresh, quit the app and move
+`progress.sqlite3` and its `-wal`/`-shm` files out of the data folder, then
+restart. History loads newest first in pages of 100 results.
 
-Tauri resolves the exact path from the OS environment. The webview also stores
-small UI preferences (theme, text size, and practice toggles) in its local
-storage. Those preferences are separate from the SQLite progress database.
-
-To back up progress, fully exit the app, then copy the database
-directory somewhere safe. SQLite may also create `progress.sqlite3-wal` and
-`progress.sqlite3-shm` companion files; do not delete them while the app is running.
-Keeping the same application ID lets subsequent versions locate the existing
-database. Back up your progress before upgrading a prerelease.
-
-Fresh installs create a native SQLite database automatically. Databases from
-TypeDH 0.1.x (schema version 1) are upgraded in place on first launch: the app
-first writes a complete copy named `progress.v1-backup-<unix-time>.sqlite3` next
-to the database, then migrates inside a single transaction. Earlier results are
-kept with their original lesson titles; earlier custom-practice results become
-custom sessions. Older results have no duration or per-key data. If the backup
-cannot be written, the database is left unchanged and the error is shown.
-
-Databases with an unknown schema version, such as one written by a newer
-release, are rejected without being modified. To start fresh, close the app and
-move `progress.sqlite3` and its `-wal`/`-shm` files out of the app-data folder,
-then restart. History loads newest first in pages of 100 results.
+Asdfy was previously developed as TypeDH, a Colemak-DH tutor distributed as a
+Flatpak. Asdfy uses a new application ID and data folder and does not read,
+import, or change TypeDH data, which stays in
+`~/.var/app/io.github.exolithelabs.typedh/` until you remove it.
 
 ## Architecture
 
@@ -168,15 +151,16 @@ then restart. History loads newest first in pages of 100 results.
 | Local backend | Rust Tauri commands, compiled into the desktop app |
 | Data storage | SQLite through rusqlite, with SQLite bundled at compile time |
 | Frontend/backend communication | Tauri IPC with typed command payloads |
+| Packages | Tauri bundler: AppImage, NSIS installer, and DMG |
 
-The frontend invokes `get_lessons`, `get_summary`, `get_progress`, and
-`save_progress` directly through Tauri. The lesson catalog is compiled into the
-binary, so lessons load even when storage is unavailable; practice text for
-generated lessons, smart practice, and speed tests is built in the frontend from a
-bundled word list. Rust serializes database access on a background worker and
-validates the command payloads; the webview cannot submit SQL or choose database paths.
-The app makes no HTTP requests. There is no in-app updater, CORS configuration,
-API tokens, or shell plugin.
+The frontend invokes `get_lessons`, `get_summary`, `get_progress`,
+`save_progress`, and `data_location` directly through Tauri. The lesson catalog
+is compiled into the binary, so lessons load even when storage is unavailable;
+practice text for generated lessons, smart practice, and speed tests is built in
+the frontend from a bundled word list. Rust serializes database access on a
+background worker and validates the command payloads; the webview cannot submit
+SQL or choose database paths. The app makes no HTTP requests. There is no in-app
+updater, CORS configuration, API tokens, or shell plugin.
 SQLite retains WAL mode, full synchronization, foreign keys, and a write timeout.
 Failed database opens can be retried from the UI. Writes are never retried
 automatically, and loading/save failures are shown in the interface.
@@ -185,8 +169,8 @@ Project layout:
 
 ```text
 frontend/src/
-  domain/           Plain TypeScript: typing engine, keyboard map, drill generator,
-                    word list, statistics helpers, and models
+  domain/           Plain TypeScript: typing engine, QWERTY keyboard map, drill
+                    generator, word list, statistics helpers, and models
   services/         Typed desktop client, settings, and UI preferences
   composables/      App coordination and DOM typing lifecycle
   shell/            Sidebar navigation and icons
@@ -199,9 +183,9 @@ src-tauri/src/
   content/          Built-in lesson catalog
   models.rs         Command payloads and validation
   commands.rs       Thin asynchronous IPC handlers
-  storage/          SQLite repository, schema, v1 migration, and persistence tests
+  storage/          SQLite repository, schema, and persistence tests
+src-tauri/icons/    App icon source (app-icon.svg) and generated platform icons
 scripts/            Release version checks
-packaging/flatpak/ Flatpak manifest, desktop entry, AppStream metadata, bundle script
 .github/            Build/release workflow and Dependabot configuration
 docs/               Additional maintainer documentation (docs/RELEASING.md)
 package.json        Root npm project: Tauri CLI plus the version source of truth
@@ -212,22 +196,22 @@ frontend as a separate project (`beforeBuildCommand: npm --prefix frontend run
 build`, `frontendDist: ../frontend/dist` in `src-tauri/tauri.conf.json`), and
 CI installs/caches/audits both (`npm ci` plus `npm --prefix frontend ci`).
 Keep `package.json` / `package-lock.json` and `frontend/package.json` /
-`frontend/package-lock.json` in sync. The release check validates root app,
-Rust, Tauri, and AppStream versions; the private frontend package has its own version.
+`frontend/package-lock.json` in sync. The release check validates the root app,
+Rust, and Tauri versions; the private frontend package has its own version.
 
 ## GitHub builds and releases
 
 The normal workflow is to edit code locally, commit, and push. GitHub-hosted
-runners install dependencies, run backend tests, build the Flatpak bundle with
-flatpak-builder, and upload the resulting file. Release packaging builds
-inside the GNOME SDK container, not from this machine's build output. Build-time
-networking downloads locked dependencies; the installed app stays offline.
+runners test the code and build each platform's package on its own operating
+system: the AppImage on Ubuntu 22.04 (its older glibc lets the AppImage run on
+more distributions), the Windows installer on Windows, and a universal macOS
+disk image on macOS.
 
 | Trigger | Result |
 | --- | --- |
-| Pull request | Linux tests/build; Actions artifact |
-| Push to `master` | Linux tests/build; Actions artifact |
-| Push a `v*` tag | Linux build, followed by a published GitHub prerelease with download |
+| Pull request | Tests and all three packages; Actions artifacts |
+| Push to `master` | Tests and all three packages; Actions artifacts |
+| Push a `v*` tag | All three packages, followed by a published GitHub prerelease with downloads |
 | Manual **Run workflow** | Build for the selected ref; publication only when the ref is a `v*` tag |
 
 Actions artifacts are retained for 14 days. Release assets are attached separately
@@ -236,27 +220,27 @@ release, and creating a tag locally does not trigger Actions until it is pushed.
 
 ### Publish a version
 
-Update the version in `package.json`, `src-tauri/Cargo.toml`,
-`src-tauri/tauri.conf.json`, and
-`packaging/flatpak/io.github.exolithelabs.typedh.metainfo.xml`. Keep the corresponding
-lock files consistent, and commit those changes. Then push an unused matching tag;
-for example, after updating to `0.1.2`:
+Update the version in `package.json`, `src-tauri/Cargo.toml`, and
+`src-tauri/tauri.conf.json`. Keep the corresponding lock files consistent, and
+commit those changes. Then push an unused matching tag; for example, after
+updating to `0.2.0`:
 
 ```bash
-git tag v0.1.2
-git push origin master v0.1.2
+git tag v0.2.0
+git push origin master v0.2.0
 ```
 
-After the Linux job passes, GitHub Actions attaches the package and publishes
-the prerelease automatically. The release job uses GitHub's automatic token.
-The workflow checks that version files and tags agree, runs frontend regression
-tests and JavaScript dependency audits, and tests the native Rust backend's
-validation, history pagination, persistence, statistics, and the backed-up
-version 1 migration. Browser tests cover completing, repeating, navigating,
-restarting, custom practice, and persisted settings; a packaged startup check verifies
-the installed Flatpak stays open and initializes storage. Actions are
-pinned to commit IDs. Published releases cannot be overwritten by
-a rerun; use a new version tag. Releases include `SHA256SUMS` for the package.
+After all three package jobs pass, GitHub Actions attaches the packages and
+publishes the prerelease automatically. The release job uses GitHub's automatic token.
+The workflow checks that version files and tags agree, runs frontend
+regression tests and JavaScript dependency audits, and tests the native Rust
+backend's validation, history pagination, persistence, and statistics on Linux,
+Windows, and macOS. Browser tests cover completing, repeating, navigating,
+restarting, custom practice, and persisted settings; a startup check verifies the
+built AppImage stays open and initializes storage. Actions are pinned to commit
+IDs. Published releases cannot be overwritten by a rerun; use a new version tag.
+Releases include `SHA256SUMS` for the packages. See
+[docs/RELEASING.md](docs/RELEASING.md) for details.
 
 ## Development
 
@@ -265,7 +249,8 @@ local interactive preview, the commands below launch the desktop
 development app with its integrated Rust backend.
 
 Use Node.js 22, the current stable Rust toolchain, and the native
-Tauri development prerequisites for your distribution. Run commands from the repo root.
+[Tauri prerequisites](https://v2.tauri.app/start/prerequisites/) for your
+operating system. Run commands from the repo root.
 
 ```bash
 npm ci
@@ -275,36 +260,25 @@ npm run tauri dev
 
 The frontend calls Tauri commands to connect to the local backend; running Vite
 alone in a browser is not a complete desktop-app preview. Development launches
-store progress in a `development/` subdirectory of the app-data directory,
-separate from installed release builds.
+store progress in a `development/` subdirectory of the data folder, separate
+from installed release builds.
 
-The Flatpak launcher disables WebKit's DMA-BUF renderer by default to avoid the
-Wayland protocol failure observed on this NVIDIA system. It does not change your
-desktop settings. To explicitly opt into that renderer for diagnosis:
+To build a package for your own platform instead, run
+`npm run tauri build -- --bundles appimage` (Linux), `--bundles nsis` (Windows),
+or `--bundles dmg` (macOS). Output is written under `src-tauri/target/release/bundle/`.
 
-```bash
-flatpak run --env=WEBKIT_DISABLE_DMABUF_RENDERER=0 io.github.exolithelabs.typedh
-```
-
-To build the Flatpak bundle locally instead, install Flatpak and
-flatpak-builder, add the Flathub remote, install the GNOME 49
-platform/SDK plus the Rust and Node SDK extensions, and run:
-
-```bash
-./packaging/flatpak/build-flatpak.sh
-```
-
-This writes `dist/typedh-<version>-x86_64.flatpak`.
+To change the app icon, edit `src-tauri/icons/app-icon.svg`, run
+`npx tauri icon src-tauri/icons/app-icon.svg -o src-tauri/icons`, and delete the
+generated `android`, `ios`, and `Square*`/`StoreLogo` files, which are not used.
 
 ## Support and security
 
-For bugs, open an [issue](https://github.com/dhiraj-ydv/typedh/issues)
-with your app version, distro version, installation method, and steps
+For bugs, open an [issue](https://github.com/exolithelabs/TypeDH/issues)
+with your app version, operating system and version, package type, and steps
 to reproduce. For a failed build, include the GitHub Actions run URL.
 
 For suspected vulnerabilities, follow [SECURITY.md](SECURITY.md) and report
-privately. Do not attach your personal database or signing credentials to a
-public issue.
+privately. Do not attach your personal database to a public issue.
 
 ## License
 

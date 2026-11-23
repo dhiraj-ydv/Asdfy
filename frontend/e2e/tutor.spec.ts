@@ -5,8 +5,8 @@ test.beforeEach(async ({ page }) => {
   await page.addInitScript(() => {
     const results: Record<string, unknown>[] = [];
     const lessons = [
-      { id: 101, stage: 'Home row', title: 'Home row anchors', kind: 'text', keys: '', content: 'arst' },
-      { id: 102, stage: 'Home row', title: 'Inner reach: G and M', kind: 'text', keys: '', content: 'neio' },
+      { id: 1, stage: 'Home row', title: 'Home row anchors', kind: 'text', keys: '', content: 'asdf' },
+      { id: 2, stage: 'Home row', title: 'Inner reach: G and H', kind: 'text', keys: '', content: 'jkl;' },
     ];
     function summary() {
       const best = new Map<number, { lesson_id: number; best_wpm: number; best_accuracy: number; attempts: number }>();
@@ -40,6 +40,7 @@ test.beforeEach(async ({ page }) => {
               return;
             }
             case 'app_version': return '0.1.2';
+            case 'data_location': return '/home/user/.local/share/io.github.exolithelabs.asdfy';
             default: throw new Error(`Unexpected command: ${command}`);
           }
         },
@@ -47,7 +48,7 @@ test.beforeEach(async ({ page }) => {
     });
   });
   await page.goto('/');
-  await expect(page.getByRole('heading', { name: 'Learn Colemak-DH' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Learn to touch type' })).toBeVisible();
 });
 
 const typingInput = (page: Page) => page.getByLabel('Type the displayed text here');
@@ -70,18 +71,19 @@ test('complete, repeat, next lesson, statistics, and version', async ({ page }) 
   await typeShownText(page);
   await expect(page.getByText('Result saved.')).toBeVisible();
   await page.getByRole('button', { name: 'Next lesson' }).click();
-  await expect(page.getByRole('heading', { level: 1, name: 'Inner reach: G and M' })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1, name: 'Inner reach: G and H' })).toBeVisible();
   await page.getByRole('button', { name: 'Statistics' }).click();
   await expect(page.getByRole('table', { name: 'Recent sessions' }).locator('tbody tr')).toHaveCount(2);
   await page.getByRole('button', { name: 'Settings' }).click();
-  await expect(page.getByText('TypeDH version 0.1.2')).toBeVisible();
+  await expect(page.getByText('Asdfy version 0.1.2')).toBeVisible();
+  await expect(page.getByText('/home/user/.local/share/io.github.exolithelabs.asdfy')).toBeVisible();
 });
 
 test('escape restarts typing, navigation keeps the session, and custom practice works', async ({ page }) => {
   await page.getByRole('button', { name: 'Start lesson' }).click();
   await expect(typingInput(page)).toBeFocused();
-  await page.keyboard.type('ar');
-  await expect(typingInput(page)).toHaveValue('ar');
+  await page.keyboard.type('as');
+  await expect(typingInput(page)).toHaveValue('as');
   await page.keyboard.press('Escape');
   await expect(typingInput(page)).toHaveValue('');
   await page.getByRole('button', { name: 'Statistics' }).click();

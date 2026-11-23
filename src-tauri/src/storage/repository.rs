@@ -1,4 +1,4 @@
-use std::{fs, path::Path, time::{Duration, SystemTime, UNIX_EPOCH}};
+use std::{fs, path::Path, time::Duration};
 use rusqlite::{params, Connection, Row};
 
 use crate::content::LESSONS;
@@ -7,26 +7,23 @@ use crate::models::{
 };
 
 const DATABASE_NAME: &str = "progress.sqlite3";
-const SCHEMA_VERSION: i32 = 2;
+const SCHEMA_VERSION: i32 = 1;
 
 fn storage_error(error: impl std::fmt::Display) -> String {
-    eprintln!("TypeDH storage: {error}");
+    eprintln!("Asdfy storage: {error}");
     "Unable to access local progress. Check free disk space and retry.".into()
 }
 
+/// Restricts progress files to the current user. Windows profile folders are already per-user.
+#[cfg(unix)]
 fn secure(path: &Path, mode: u32) -> Result<()> {
     use std::os::unix::fs::PermissionsExt;
     fs::set_permissions(path, fs::Permissions::from_mode(mode)).map_err(storage_error)
 }
 
-/// Copies a database before it is migrated so the previous format can be restored by hand.
-fn backup(connection: &Connection, directory: &Path, version: i32) -> Result<()> {
-    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).map_err(storage_error)?.as_secs();
-    let path = directory.join(format!("progress.v{version}-backup-{stamp}.sqlite3"));
-    if path.exists() { return Err("A database backup is already in progress. Retry in a moment.".into()); }
-    let target = path.to_str().ok_or("The app-data path is not valid UTF-8.")?;
-    connection.execute("VACUUM INTO ?1", [target]).map_err(storage_error)?;
-    secure(&path, 0o600)
+#[cfg(not(unix))]
+fn secure(_path: &Path, _mode: u32) -> Result<()> {
+    Ok(())
 }
 
 pub struct Repository(Connection);
@@ -43,19 +40,12 @@ impl Repository {
         connection.busy_timeout(Duration::from_secs(5)).map_err(storage_error)?;
         let version: i32 = connection.pragma_query_value(None, "user_version", |row| row.get(0)).map_err(storage_error)?;
         let tables: i64 = connection.query_row("SELECT count(*) FROM sqlite_master", [], |row| row.get(0)).map_err(storage_error)?;
-        // Known older formats are backed up, then migrated; anything else is left untouched.
-        let migrate = match version {
-            SCHEMA_VERSION => false,
-            0 if tables == 0 => false,
-            1 => true,
-            _ => return Err("This progress database has an unknown format and was left unchanged. Install the newest TypeDH version.".into()),
-        };
-        connection.execute_batch("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;").map_err(storage_error)?;
-        if migrate { backup(&connection, directory, version)?; }
-        let transaction = connection.transaction().map_err(storage_error)?;
-        if migrate {
-            transaction.execute_batch("DROP INDEX IF EXISTS results_by_user; ALTER TABLE results RENAME TO results_v1;").map_err(storage_error)?;
+        // Only an empty file or the current format is opened; anything else is left untouched.
+        if version != SCHEMA_VERSION && !(version == 0 && tables == 0) {
+            return Err("This progress database has an unknown format and was left unchanged. Install the newest Asdfy version.".into());
         }
+        connection.execute_batch("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;").map_err(storage_error)?;
+        let transaction = connection.transaction().map_err(storage_error)?;
         transaction.execute_batch(include_str!("schema.sql")).map_err(storage_error)?;
         for (index, lesson) in LESSONS.iter().enumerate() {
             transaction.execute(
@@ -64,7 +54,6 @@ impl Repository {
                 params![lesson.id, lesson.title, lesson.content, index as i64 + 1],
             ).map_err(storage_error)?;
         }
-        if migrate { transaction.execute_batch(include_str!("migrate_v1.sql")).map_err(storage_error)?; }
         transaction.commit().map_err(storage_error)?;
         Ok(Self(connection))
     }

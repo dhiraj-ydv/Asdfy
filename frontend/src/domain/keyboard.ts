@@ -1,9 +1,10 @@
-/** A physical key on an ANSI Colemak-DH keyboard. Fingers: 0 thumb, 1–4 left pinky→index, 5–8 right index→pinky. */
+/** A physical key on a US QWERTY (ANSI) keyboard. Fingers: 0 thumb, 1–4 left pinky→index, 5–8 right index→pinky. */
 export interface KeyCap {
   key: string;
   shifted: string;
   finger: number;
-  home: boolean;
+  /** F and J carry the tactile bumps that locate the home row. */
+  bump: boolean;
 }
 
 interface Location {
@@ -14,14 +15,14 @@ interface Location {
 
 const ROWS: [string, string, number[]][] = [
   ['`1234567890-=', '~!@#$%^&*()_+', [1, 1, 2, 3, 4, 4, 5, 5, 6, 7, 8, 8, 8]],
-  ['qwfpbjluy;[]\\', 'QWFPBJLUY:{}|', [1, 2, 3, 4, 4, 5, 5, 6, 7, 8, 8, 8, 8]],
-  ["arstgmneio'", 'ARSTGMNEIO"', [1, 2, 3, 4, 4, 5, 5, 6, 7, 8, 8]],
-  ['zxcdvkh,./', 'ZXCDVKH<>?', [1, 2, 3, 4, 4, 5, 5, 6, 7, 8]],
+  ['qwertyuiop[]\\', 'QWERTYUIOP{}|', [1, 2, 3, 4, 4, 5, 5, 6, 7, 8, 8, 8, 8]],
+  ["asdfghjkl;'", 'ASDFGHJKL:"', [1, 2, 3, 4, 4, 5, 5, 6, 7, 8, 8]],
+  ['zxcvbnm,./', 'ZXCVBNM<>?', [1, 2, 3, 4, 4, 5, 5, 6, 7, 8]],
 ];
-const HOME = new Set('arstneio');
+const BUMPS = new Set('fj');
 
 export const keyboardRows: KeyCap[][] = ROWS.map(([keys, shifted, fingers]) =>
-  Array.from(keys, (key, index) => ({ key, shifted: shifted.charAt(index), finger: fingers[index] ?? -1, home: HOME.has(key) })));
+  Array.from(keys, (key, index) => ({ key, shifted: shifted.charAt(index), finger: fingers[index] ?? -1, bump: BUMPS.has(key) })));
 
 const locations = new Map<string, Location>([[' ', { key: ' ', shift: false, finger: 0 }]]);
 for (const cap of keyboardRows.flat()) {

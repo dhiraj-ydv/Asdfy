@@ -14,6 +14,7 @@ export function createClient(invoke: Invoke) {
     close: () => invoke<void>('stop_application'),
     restart: () => invoke<void>('restart_application'),
     version: () => invoke<string>('app_version'),
+    dataLocation: () => invoke<string>('data_location'),
   };
 }
 

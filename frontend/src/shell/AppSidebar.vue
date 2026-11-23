@@ -18,8 +18,8 @@ const sections: { view: View; label: string; icon: IconName }[] = [
 <template>
   <aside class="sidebar">
     <div class="brand">
-      <span class="brand-mark" aria-hidden="true">DH</span>
-      <span class="brand-name">TypeDH</span>
+      <img class="brand-mark" src="/favicon.svg" alt="" />
+      <span class="brand-name">Asdfy</span>
     </div>
     <nav class="nav" aria-label="Main">
       <button v-for="section in sections" :key="section.view" class="nav-item" :class="{ active: view === section.view }"
@@ -47,20 +47,7 @@ const sections: { view: View; label: string; icon: IconName }[] = [
 
 .brand { display: flex; align-items: center; gap: 10px; padding: 4px 8px 18px; }
 
-.brand-mark {
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 9px;
-  background: var(--accent);
-  color: var(--on-accent);
-  font-family: var(--font-mono);
-  font-weight: 800;
-  font-size: 0.8rem;
-  box-shadow: inset 0 -3px 0 rgba(0, 0, 0, 0.18);
-  flex: none;
-}
+.brand-mark { width: 32px; height: 32px; flex: none; }
 
 .brand-name { font-weight: 750; font-size: 1.1rem; letter-spacing: -0.02em; }
 

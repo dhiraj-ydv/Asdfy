@@ -55,3 +55,9 @@ pub fn restart_application(app: tauri::AppHandle) {
 pub fn app_version() -> &'static str {
     env!("CARGO_PKG_VERSION")
 }
+
+/// Shown in Settings so people know what to back up; the path is never accepted from the UI.
+#[tauri::command]
+pub fn data_location(state: State<'_, Arc<Storage>>) -> String {
+    state.directory().display().to_string()
+}

@@ -47,15 +47,15 @@ onMounted(() => startButton.value?.focus());
 <template>
   <section class="page">
     <header class="page-header">
-      <h1>Learn Colemak-DH</h1>
+      <h1>Learn to touch type</h1>
       <p>Each lesson adds a few keys and drills real words made only from letters you already know.
         Finish with {{ PASS_ACCURACY }}% accuracy to pass.</p>
     </header>
 
     <div v-if="firstRun" class="callout">
       <Icon name="keyboard" />
-      <p><strong>Switch your keyboard layout first.</strong> TypeDH reads the characters your keyboard sends.
-        Enable Colemak-DH in your system keyboard settings, then start with the home row.</p>
+      <p><strong>Rest your fingers on the home row.</strong> Left fingers on A S D F, right fingers on J K L ;,
+        thumbs on Space. The F and J keys have small bumps so you can find them without looking.</p>
     </div>
 
     <div class="hero card">

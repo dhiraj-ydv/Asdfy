@@ -1,13 +1,13 @@
 [package]
-name = "typedh"
+name = "asdfy"
 version = "0.1.2"
-description = "TypeDH — Colemak-DH typing tutor"
+description = "Asdfy — touch-typing tutor"
 authors = ["Exolithe Labs"]
 edition = "2021"
 license = "Elastic-2.0"
 
 [lib]
-name = "typedh_lib"
+name = "asdfy_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

@@ -1,9 +1,0 @@
-[Desktop Entry]
-Name=TypeDH
-Comment=Colemak-DH typing tutor
-Exec=typedh
-Icon=io.github.exolithelabs.typedh
-Terminal=false
-Type=Application
-Categories=Education;
-StartupWMClass=TypeDH

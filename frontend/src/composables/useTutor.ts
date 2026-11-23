@@ -32,6 +32,7 @@ export function useTutor(client: Client, random: Random = Math.random) {
   const adaptiveOptions = ref<AdaptiveOptions>({ scope: 'learned', words: 50 });
   const testOptions = ref<TestOptions>({ seconds: 60, punctuation: false, numbers: false });
   const installedVersion = ref('');
+  const dataLocation = ref('');
   const versionError = ref('');
   let loadRequest = 0;
   let historyRequest = 0;
@@ -129,7 +130,7 @@ export function useTutor(client: Client, random: Random = Math.random) {
       if (!entries.length) throw new Error('No lessons available.');
       lessons.value = entries;
     } catch {
-      if (request === loadRequest) error.value = 'The app could not load its lessons. Restart TypeDH and try again.';
+      if (request === loadRequest) error.value = 'The app could not load its lessons. Restart Asdfy and try again.';
     } finally {
       if (request === loadRequest) loading.value = false;
     }
@@ -199,10 +200,12 @@ export function useTutor(client: Client, random: Random = Math.random) {
     versionError.value = '';
     try { installedVersion.value = await client.version(); }
     catch { versionError.value = 'The installed version could not be read.'; }
+    try { dataLocation.value = await client.dataLocation(); }
+    catch { dataLocation.value = ''; }
   }
 
   async function control(action: 'close' | 'restart') {
-    if (!confirm(action === 'close' ? 'Quit TypeDH?' : 'Restart TypeDH?')) return;
+    if (!confirm(action === 'close' ? 'Quit Asdfy?' : 'Restart Asdfy?')) return;
     try { await client[action](); }
     catch { error.value = `The app could not ${action}. Close and reopen it using your application menu.`; }
   }
@@ -210,7 +213,7 @@ export function useTutor(client: Client, random: Random = Math.random) {
   return {
     lessons, summary, view, session, sessionKey, loading, error, history, historyLoading, historyError, hasMore,
     result, previousBest, saving, saveMessage, customText, adaptiveOptions, testOptions, installedVersion,
-    versionError, passed, upNext, learned, hasNextLesson,
+    dataLocation, versionError, passed, upNext, learned, hasNextLesson,
     load, loadSummary, loadHistory, navigate, startLesson, startAdaptive, startTest, startCustom,
     retry, leave, next, complete, control,
   };

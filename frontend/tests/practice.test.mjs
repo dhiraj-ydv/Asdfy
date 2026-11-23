@@ -105,12 +105,16 @@ test('custom practice is normalized and bounded', () => {
   assert.equal(normalizePractice('x'.repeat(10_000)).length, 10_000);
 });
 
-test('characters map to the correct physical Colemak-DH key, finger and shift', () => {
+test('characters map to the correct physical QWERTY key, finger and shift', () => {
   assert.equal(physicalKey('?'), '/');
   assert.equal(physicalKey('"'), "'");
   assert.equal(physicalKey('!'), '1');
   assert.equal(getFinger('?'), 8);
   assert.equal(getFinger('A'), 1);
+  assert.equal(getFinger('t'), 4);
+  assert.equal(getFinger('y'), 5);
+  assert.equal(getFinger('p'), 8);
+  assert.equal(physicalKey(':'), ';');
   assert.equal(getFinger(' '), 0);
   assert.equal(getFinger('🙂'), -1);
   assert.equal(shiftFinger('A'), 8);

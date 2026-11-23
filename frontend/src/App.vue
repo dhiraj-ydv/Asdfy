@@ -17,7 +17,7 @@ const tutor = useTutor(desktop);
 const {
   lessons, summary, view, session, sessionKey, loading, error, history, historyLoading, historyError, hasMore,
   result, previousBest, saving, saveMessage, customText, adaptiveOptions, testOptions, installedVersion,
-  versionError, passed, upNext, learned, hasNextLesson,
+  dataLocation, versionError, passed, upNext, learned, hasNextLesson,
 } = tutor;
 const inSession = computed(() => !!session.value && MODE_VIEWS[session.value.mode] === view.value);
 const practiceEnabled = computed(() => inSession.value && !result.value && !loading.value);
@@ -48,7 +48,7 @@ onMounted(tutor.load);
         <CustomView v-else-if="view === 'custom'" v-model="customText" @start="tutor.startCustom" />
         <StatsView v-else-if="view === 'stats'" :summary="summary" :history="history" :loading="historyLoading"
           :error="historyError" :has-more="hasMore" @retry="tutor.loadHistory()" @more="tutor.loadHistory(true)" />
-        <SettingsView v-else-if="view === 'settings'" :version="installedVersion" :error="versionError"
+        <SettingsView v-else-if="view === 'settings'" :version="installedVersion" :error="versionError" :data-location="dataLocation"
           @control="tutor.control" />
       </template>
     </main>
