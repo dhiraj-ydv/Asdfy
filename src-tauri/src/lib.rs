@@ -20,6 +20,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::get_lessons,
             commands::get_progress,
+            commands::get_summary,
             commands::save_progress,
             commands::stop_application,
             commands::restart_application,

@@ -1,171 +1,154 @@
 <script setup lang="ts">
 import { computed } from 'vue';
-import Hands from './Hands.vue';
-import { layout, fingerColors, getFinger, physicalKey } from '../../domain/keyboard';
+import type { KeyCap } from '../../domain/keyboard';
+import { keyboardRows, physicalKey, shiftFinger } from '../../domain/keyboard';
 
-const props = defineProps<{
-  activeKey?: string;
-  targetKey?: string;
-}>();
+/**
+ * `target` and `pressed` drive live guidance; `heat` (0–1 per key) turns the board into a heatmap.
+ * `pressed` is a physical key or a modifier id such as `shift-left`.
+ */
+const props = withDefaults(defineProps<{
+  target?: string;
+  pressed?: string;
+  heat?: Record<string, number>;
+  titles?: Record<string, string>;
+}>(), { target: '', pressed: '', heat: undefined, titles: undefined });
 
-const targetFinger = computed(() => {
-  if (!props.targetKey) return -1;
-  return getFinger(props.targetKey);
+interface Cap {
+  id: string;
+  label: string;
+  shifted?: string;
+  width: number;
+  finger: number;
+  home?: boolean;
+  modifier?: boolean;
+}
+
+function cap(key: KeyCap, width = 1): Cap {
+  const letter = /^[a-z]$/u.test(key.key);
+  return {
+    id: key.key, label: letter ? key.key.toUpperCase() : key.key, shifted: letter ? undefined : key.shifted,
+    width, finger: key.finger, home: key.home,
+  };
+}
+
+function modifier(id: string, label: string, width: number, finger: number): Cap {
+  return { id, label, width, finger, modifier: true };
+}
+
+const [numbers = [], top = [], home = [], bottom = []] = keyboardRows;
+const rows: Cap[][] = [
+  [...numbers.map(key => cap(key)), modifier('backspace', 'Back', 2, 8)],
+  [modifier('tab', 'Tab', 1.5, 1), ...top.map(key => cap(key, key.key === '\\' ? 1.5 : 1))],
+  [modifier('caps', 'Caps', 1.75, 1), ...home.map(key => cap(key)), modifier('enter', 'Enter', 2.25, 8)],
+  [modifier('shift-left', 'Shift', 2.25, 1), ...bottom.map(key => cap(key)), modifier('shift-right', 'Shift', 2.75, 8)],
+  [{ id: ' ', label: '', width: 6.25, finger: 0 }],
+];
+
+const targetKey = computed(() => props.target ? physicalKey(props.target) : '');
+const targetShift = computed(() => {
+  const finger = shiftFinger(props.target);
+  return finger === 1 ? 'shift-left' : finger === 8 ? 'shift-right' : '';
 });
 
-const isKeyActive = (key: string) => {
-  return physicalKey(props.activeKey ?? '') === key;
-};
-
-const isKeyTarget = (key: string) => {
-  return physicalKey(props.targetKey ?? '') === key;
-};
+function style(key: Cap) {
+  const heat = props.heat?.[key.id];
+  return {
+    '--w': key.width,
+    '--finger': `var(--finger-${key.finger})`,
+    ...(heat === undefined ? {} : { '--heat': `${Math.round(heat * 80)}%` }),
+  };
+}
 </script>
 
 <template>
-  <div class="keyboard-visualizer">
-    <div class="keyboard-frame">
-      <div class="keyboard-inner">
-        <div v-for="(row, rowIndex) in layout" :key="rowIndex" class="keyboard-row">
-          <div 
-            v-for="key in row" 
-            :key="key" 
-            class="key-cap"
-            :class="{ 
-              active: isKeyActive(key), 
-              target: isKeyTarget(key)
-            }"
-            :style="isKeyTarget(key) ? { '--finger-color': fingerColors[getFinger(key)] } : {}"
-          >
-            <span class="label">{{ key.toUpperCase() }}</span>
-            <div class="finger-indicator" :style="{ background: fingerColors[getFinger(key)] }"></div>
-          </div>
-        </div>
-        <div class="keyboard-row">
-          <div 
-            class="key-cap space-bar" 
-            :class="{ active: isKeyActive(' '), target: isKeyTarget(' ') }"
-            :style="isKeyTarget(' ') ? { '--finger-color': fingerColors[0] } : {}"
-          >
-            <span class="label">SPACE</span>
-          </div>
+  <div class="keyboard" :class="{ heatmap: heat }">
+    <div class="keys">
+      <div v-for="(row, index) in rows" :key="index" class="row">
+        <div v-for="key in row" :key="key.id" class="key"
+          :class="{
+            target: key.id === targetKey || key.id === targetShift,
+            pressed: key.id === pressed,
+            home: key.home,
+            modifier: key.modifier,
+            measured: heat?.[key.id] !== undefined,
+          }"
+          :style="style(key)" :title="titles?.[key.id]">
+          <span v-if="key.shifted" class="shifted">{{ key.shifted }}</span>
+          <span class="label">{{ key.label }}</span>
         </div>
       </div>
-    </div>
-
-    <div class="hands-view">
-      <Hands :targetFinger="targetFinger" />
     </div>
   </div>
 </template>
 
 <style scoped>
-.keyboard-visualizer {
+.keyboard { container-type: inline-size; width: 100%; }
+
+.keys {
+  --u: min(46px, calc(100cqi / 15.2));
+  --gap: calc(var(--u) * 0.1);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 15px; /* Reduced gap */
+  gap: var(--gap);
 }
 
-.keyboard-frame {
-  background: #1e293b;
-  padding: 16px; /* Reduced padding */
-  border-radius: 16px;
-  box-shadow: 
-    0 10px 25px -5px rgba(0,0,0,0.3),
-    inset 0 2px 4px rgba(255,255,255,0.1);
-}
+.row { display: flex; gap: var(--gap); }
 
-.keyboard-inner {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-}
-
-.keyboard-row {
-  display: flex;
-  gap: 6px;
-  justify-content: center;
-}
-
-.key-cap {
-  width: 42px; /* Slightly smaller keys */
-  height: 42px;
-  background: #334155;
-  border-radius: 6px;
+.key {
   position: relative;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  transition: all 0.1s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 
-    0 3px 0 #0f172a,
-    0 4px 8px rgba(0,0,0,0.2);
-  border: 1px solid rgba(255,255,255,0.05);
+  width: calc(var(--u) * var(--w) - var(--gap));
+  height: calc(var(--u) - var(--gap));
+  border-radius: calc(var(--u) * 0.16);
+  background: var(--key);
+  border: 1px solid var(--border);
+  box-shadow: inset 0 -3px 0 color-mix(in srgb, var(--finger) 30%, transparent), 0 1px 0 var(--key-edge);
+  color: var(--muted);
+  font-size: calc(var(--u) * 0.3);
+  font-weight: 650;
+  line-height: 1;
+  transition: background-color 0.12s, transform 0.08s, box-shadow 0.12s, color 0.12s;
 }
 
-.key-cap .label {
-  color: #94a3b8;
-  font-weight: 700;
-  font-size: 0.9rem;
+.key.modifier { color: var(--faint); font-size: calc(var(--u) * 0.24); font-weight: 600; }
+.shifted { font-size: 0.72em; color: var(--faint); margin-bottom: 2px; }
+
+.key.home::after {
+  content: '';
+  position: absolute;
+  bottom: 18%;
+  width: 22%;
+  height: 2px;
+  border-radius: 1px;
+  background: currentColor;
+  opacity: 0.45;
 }
 
-.key-cap.active {
-  transform: translateY(3px);
-  box-shadow: 0 0 0 #0f172a;
-  background: var(--primary-color);
+.key.target {
+  background: var(--finger);
+  border-color: var(--finger);
+  color: #101317;
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--finger) 35%, transparent);
 }
 
-.key-cap.active .label {
-  color: white;
+.key.target .shifted { color: rgba(16, 19, 23, 0.7); }
+
+.key.pressed {
+  transform: translateY(1px) scale(0.96);
+  background: var(--surface-3);
+  color: var(--text);
 }
 
-.key-cap.target {
-  background: #475569;
-  border: 2px solid var(--finger-color);
-  animation: pulse 1.5s infinite;
-}
+.key.target.pressed { background: var(--finger); color: #101317; }
 
-@keyframes pulse {
-  0% { box-shadow: 0 3px 0 #0f172a, 0 0 0 0px var(--finger-color); }
-  50% { box-shadow: 0 3px 0 #0f172a, 0 0 12px 1px var(--finger-color); }
-  100% { box-shadow: 0 3px 0 #0f172a, 0 0 0 0px var(--finger-color); }
-}
-
-.space-bar {
-  width: 280px; /* Smaller spacebar */
-  margin-top: 3px;
-}
-
-.hands-view {
-  opacity: 0.8;
-  transform: scale(0.85); /* Scale down hands to fit */
-  margin-top: -30px;
-}
-
-@media (max-height: 760px) {
-  .keyboard-visualizer {
-    gap: 6px;
-  }
-
-  .keyboard-frame {
-    padding: 10px;
-  }
-
-  .key-cap {
-    width: 38px;
-    height: 38px;
-  }
-
-  .space-bar {
-    width: 250px;
-  }
-
-  .hands-view {
-    height: 125px;
-    transform: scale(0.7);
-    transform-origin: top center;
-    margin-top: -20px;
-  }
+.heatmap .key { box-shadow: 0 1px 0 var(--key-edge); }
+.heatmap .key.measured {
+  background: color-mix(in srgb, var(--danger) var(--heat), var(--accent-soft));
+  color: var(--text);
 }
 </style>

@@ -1,7 +1,8 @@
 use std::sync::Arc;
 use tauri::State;
 
-use crate::models::{Lesson, Progress, ProgressInput, Result};
+use crate::content::LESSONS;
+use crate::models::{Lesson, Progress, ProgressInput, Result, Summary};
 use crate::storage::{Repository, Storage};
 
 async fn work<T: Send + 'static>(
@@ -14,9 +15,10 @@ async fn work<T: Send + 'static>(
         .map_err(|_| "Storage operation could not complete.".to_string())?
 }
 
+/// The catalog is compiled in, so lessons load even when storage is unavailable.
 #[tauri::command]
-pub async fn get_lessons(state: State<'_, Arc<Storage>>) -> Result<Vec<Lesson>> {
-    work(&state, |repository| repository.lessons()).await
+pub fn get_lessons() -> Vec<Lesson> {
+    LESSONS.to_vec()
 }
 
 #[tauri::command]
@@ -27,6 +29,11 @@ pub async fn get_progress(
     state: State<'_, Arc<Storage>>,
 ) -> Result<Vec<Progress>> {
     work(&state, move |repository| repository.history(&username, limit.unwrap_or(100), before)).await
+}
+
+#[tauri::command]
+pub async fn get_summary(username: String, state: State<'_, Arc<Storage>>) -> Result<Summary> {
+    work(&state, move |repository| repository.summary(&username)).await
 }
 
 #[tauri::command]

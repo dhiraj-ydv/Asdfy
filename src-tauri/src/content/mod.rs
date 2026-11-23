@@ -1,31 +1,56 @@
 // Lesson content is data, separate from application and persistence logic.
-pub const LESSONS: &[(&str, &str, i32)] = &[
-    ("Home Row - Basic", "arst neio", 1),
-    ("Home Row - DH Focus", "astg neio m", 1),
-    ("Home Row - Common Bigrams", "th he an in er re on at en nd st es", 1),
-    ("Home Row - Short Words", "star rain note nest near sent east area sane", 1),
-    ("Home Row - Fluency", "the rain in spain stays mainly in the plain", 1),
-    ("Top Row - Left Hand", "qwfpg arst", 2),
-    ("Top Row - Right Hand", "jluy; neio", 2),
-    ("Top Row - Mixed", "quick flow glad play jump wolf quay", 2),
-    ("Top Row - DH Precision", "page find peak grow just long your year", 2),
-    ("Top Row - Sentences", "the quick brown fox jumps over the lazy dog", 2),
-    ("Bottom Row - Basic", "zxc dv kh , . /", 3),
-    ("Bottom Row - Words", "dock back view size zone kind half calm", 3),
-    ("Bottom Row - Integration", "every day is a new chance to learn and grow", 3),
-    ("Punctuation - Basic", "hello, world! how are you today? (fine.)", 3),
-    ("Punctuation - Advanced", "it's \"great\" to see you; let's start!", 3),
-    ("Top 100 Words - Part 1", "the be of and a to in of it for not on with he as you do", 4),
-    ("Top 100 Words - Part 2", "at this but his by from they we say her she or an will my", 4),
-    ("Trigram Mastery", "the and ing her hat his tha ere for ent ion ter was", 4),
-    ("Double Letters", "tell well keep book look feel seen soon moon summer", 4),
-    ("Prose - Philosophy", "to be or not to be, that is the question of the soul.", 5),
-    ("Prose - Technology", "artificial intelligence is the future of human computer interaction.", 5),
-    ("Prose - Nature", "the mountains are calling and i must go to the peak.", 5),
-    ("Numbers - Row 1", "12345 67890 54321 09876", 6),
-    ("Coding - Python", "import os, sys; print(\"path:\", os.getcwd())", 6),
-    ("Coding - CSS", "body { margin: 0; padding: 20px; display: flex; }", 6),
-    ("Coding - HTML", "<div class=\"main\"><h1>Hello World</h1></div>", 6),
-    ("Mastery - Long Text", "four score and seven years ago our fathers brought forth on this continent a new nation conceived in liberty and dedicated to the proposition that all men are created equal.", 7),
-    ("Mastery - Colemak DH Stress", "bright green plants grow high above the dark deep valley below.", 7),
+// Identifiers start at 101: version 1 databases keep lessons 1–28 so old results keep their titles.
+use crate::models::Lesson;
+
+const fn lesson(
+    id: i64,
+    stage: &'static str,
+    title: &'static str,
+    kind: &'static str,
+    keys: &'static str,
+    content: &'static str,
+) -> Lesson {
+    Lesson { id, stage, title, kind, keys, content }
+}
+
+const HOME: &str = "Home row";
+const INDEX: &str = "Index reach";
+const TOP: &str = "Top row";
+const ALPHABET: &str = "Full alphabet";
+const SYMBOLS: &str = "Shift, symbols and numbers";
+const TEXT: &str = "Real text";
+
+pub const LESSONS: &[Lesson] = &[
+    lesson(101, HOME, "Home row anchors", "keys", "arstneio", ""),
+    lesson(102, HOME, "Inner reach: G and M", "keys", "gm", ""),
+    lesson(103, HOME, "Home row words", "words", "", ""),
+    lesson(104, INDEX, "Bottom index: D and H", "keys", "dh", ""),
+    lesson(105, INDEX, "C and K", "keys", "ck", ""),
+    lesson(106, INDEX, "Review: home and bottom", "words", "", ""),
+    lesson(107, TOP, "L and U", "keys", "lu", ""),
+    lesson(108, TOP, "F and P", "keys", "fp", ""),
+    lesson(109, TOP, "W and Y", "keys", "wy", ""),
+    lesson(110, TOP, "Review: top row", "words", "", ""),
+    lesson(111, ALPHABET, "B and V", "keys", "bv", ""),
+    lesson(112, ALPHABET, "Rare letters: J, Q, X and Z", "keys", "jqxz", ""),
+    lesson(113, ALPHABET, "Review: every letter", "words", "", ""),
+    lesson(114, SYMBOLS, "Capital letters", "caps", "", ""),
+    lesson(115, SYMBOLS, "Punctuation", "punctuation", "", ""),
+    lesson(116, SYMBOLS, "Numbers", "numbers", "", ""),
+    lesson(117, TEXT, "Prose: First light", "text", "",
+        "The first light crept over the hills and found the village still asleep. A kettle hissed in a quiet kitchen, a dog stretched by the door, and somewhere a radio began to hum an old song. By the time the baker opened the shutters, the street smelled of bread and rain."),
+    lesson(118, TEXT, "Prose: Rhythm", "text", "",
+        "Good typing is less about speed than rhythm. Keep your wrists relaxed, let each finger return home, and trust the layout. Speed arrives on its own once the motions stop needing thought, so practice a little every day rather than a lot once a week."),
+    lesson(119, TEXT, "Prose: Gettysburg", "text", "",
+        "Four score and seven years ago our fathers brought forth on this continent, a new nation, conceived in Liberty, and dedicated to the proposition that all men are created equal."),
+    lesson(120, TEXT, "Code: Python", "text", "",
+        "def mean(values: list[float]) -> float: return sum(values) / len(values) if values else 0.0"),
+    lesson(121, TEXT, "Code: Rust", "text", "",
+        "for (index, word) in words.iter().enumerate() { println!(\"{index}: {word}\"); }"),
+    lesson(122, TEXT, "Code: Shell", "text", "",
+        "grep -rn \"TODO\" src/ | sort -u > todo.txt && wc -l todo.txt"),
 ];
+
+pub fn contains(id: i64) -> bool {
+    LESSONS.iter().any(|lesson| lesson.id == id)
+}

@@ -1,4 +1,4 @@
-import type { Lesson, Progress, ProgressInput } from '../domain/models.ts';
+import type { Lesson, Progress, ProgressInput, Summary } from '../domain/models.ts';
 import { HISTORY_PAGE_SIZE } from '../domain/models.ts';
 
 export type Invoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
@@ -9,6 +9,7 @@ export function createClient(invoke: Invoke) {
     lessons: () => invoke<Lesson[]>('get_lessons'),
     history: (username: string, before?: number) =>
       invoke<Progress[]>('get_progress', { username, limit: HISTORY_PAGE_SIZE, before: before ?? null }),
+    summary: (username: string) => invoke<Summary>('get_summary', { username }),
     save: (input: ProgressInput) => invoke<void>('save_progress', { input }),
     close: () => invoke<void>('stop_application'),
     restart: () => invoke<void>('restart_application'),

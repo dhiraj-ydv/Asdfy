@@ -2,9 +2,10 @@
 
 [Downloads](#downloads-and-installation) · [Usage](#using-the-app) · [User data](#user-data-and-privacy) · [Architecture](#architecture) · [GitHub workflow](#github-builds-and-releases) · [Development](#development) · [Support](#support-and-security) · [License](#license)
 
-**TypeDH — Colemak-DH typing tutor**, with progressive
-lessons, live keyboard and finger guidance, custom text practice, and local
-progress history. No account or cloud database is required.
+**TypeDH — Colemak-DH typing tutor**, with a staged course that introduces
+keys a few at a time, smart practice aimed at your weakest keys, timed speed
+tests, custom text, live keyboard and finger guidance, and detailed local
+statistics. No account or cloud database is required.
 
 [Download a release](https://github.com/dhiraj-ydv/typedh/releases) ·
 [View GitHub builds](https://github.com/dhiraj-ydv/typedh/actions/workflows/desktop-build.yml) ·
@@ -72,34 +73,52 @@ to Flathub; GitHub Releases is the distribution path. Updates are manual via
 
 ### Updating
 
-Open the menu and choose **Updates** to see the installed version. To update,
+Open **Settings** to see the installed version. To update,
 run `flatpak install --user` with the newer `.flatpak` bundle file or URL
 (see the Linux section). Your lessons and progress are kept.
 
 ## Using the app
 
-1. Enable Colemak-DH in your operating system's keyboard settings. The tutor
-   reads your keyboard input; it does not change the system layout.
-2. Open the menu and choose a lesson. Lessons progress from home-row practice
-   through words, punctuation, numbers, and coding text.
-3. Follow the highlighted keys and finger guidance while typing. Completed
-   built-in lessons record words per minute (WPM) and accuracy locally.
-4. Open **Progress History** to review previous results.
-5. Use **Custom Practice** to paste text or load a `.txt` file. Custom text is
-   converted to lowercase and whitespace is normalized for practice. Text is
-   limited to 10,000 characters. Custom-practice scores are saved in history;
-   the pasted or uploaded text is not stored in the database.
+1. Enable Colemak-DH (ANSI) in your operating system's keyboard settings. The
+   tutor reads your keyboard input; it does not change the system layout.
+2. **Learn** shows the course: six stages from the home row through the bottom
+   and top rows, the full alphabet, capitals, punctuation, numbers, and real
+   prose and code. Each lesson drills real words made only from letters you have
+   already learned. A lesson is passed at 90% accuracy; **Start lesson** /
+   **Continue lesson** always opens the first lesson you have not passed.
+3. **Smart practice** ranks keys by how often you miss them and how long they
+   take, then builds a drill around the three weakest. Choose letters learned so
+   far or the full alphabet, and 25, 50, or 100 words.
+4. **Speed test** runs 15, 30, 60, or 120 seconds of common words, optionally
+   with punctuation and capitals or numbers. The timer starts on the first key.
+5. **Custom text** practises pasted text or a `.txt` file (up to 10,000
+   characters). Curly quotes, dashes, and ellipses become typeable ASCII and
+   whitespace collapses to single spaces; case is kept unless **Lowercase** is
+   switched on. The text itself is never saved.
+6. While typing, the keyboard highlights the next key in its finger's colour
+   (and the Shift key for capitals and symbols), and the finger guide names the
+   finger to use. Every keystroke is judged when typed, so corrected mistakes
+   still count against accuracy. Results show speed, accuracy, raw speed, time,
+   mistakes, missed keys, and your previous best.
+7. **Statistics** shows totals, speed and accuracy trends, a per-key accuracy
+   heatmap, your weakest keys, an activity calendar, and session history.
+8. **Settings** offers system, light, or dark theme; three typing text sizes;
+   stop on errors (the cursor waits for the correct key); and toggles for the
+   keyboard and finger guide. Settings are remembered on this computer.
 
 | Shortcut | Action |
 | --- | --- |
 | `Tab` | Focus the typing input |
-| `Escape` | Restart the current typing exercise |
+| `Escape` | Restart the current exercise, or practise again from the results |
+| `Enter` | Continue from the results (next lesson, new drill, or new test) |
 
 ## User data and privacy
 
 On first launch, the desktop application creates its data directory for the
-current OS user. The backend creates `progress.sqlite3` there and seeds the built-in
-lessons. Later launches reuse that database. Different OS users have separate
+current OS user. The backend creates `progress.sqlite3` there and registers the
+built-in lesson titles. Later launches reuse that database. Each completed
+session stores its mode, lesson, speed, raw speed, accuracy, duration, character
+and mistake counts, and adds per-key hit, miss, and timing totals. Different OS users have separate
 progress; there is no cloud synchronization or online login.
 
 TypeDH is pre-launch and distributed only as a Flatpak application with ID
@@ -118,8 +137,8 @@ Database location for the application ID
 on the host. Flatpak sets the sandbox's `XDG_DATA_HOME` to its private data directory.
 
 Tauri resolves the exact path from the OS environment. The webview also stores
-small UI preferences, such as the selected lesson, in its local storage. Those
-preferences are separate from the SQLite progress database.
+small UI preferences (theme, text size, and practice toggles) in its local
+storage. Those preferences are separate from the SQLite progress database.
 
 To back up progress, fully exit the app, then copy the database
 directory somewhere safe. SQLite may also create `progress.sqlite3-wal` and
@@ -127,14 +146,18 @@ directory somewhere safe. SQLite may also create `progress.sqlite3-wal` and
 Keeping the same application ID lets subsequent versions locate the existing
 database. Back up your progress before upgrading a prerelease.
 
-Fresh installs create a native SQLite database automatically. Unsupported
-database schemas are rejected without rewriting their contents. To start fresh,
-close the app and move `progress.sqlite3` and its `-wal`/`-shm` files out of the
-app-data folder, then restart. Current native databases retain progress across
-restarts. History loads newest first in pages of 100 results.
+Fresh installs create a native SQLite database automatically. Databases from
+TypeDH 0.1.x (schema version 1) are upgraded in place on first launch: the app
+first writes a complete copy named `progress.v1-backup-<unix-time>.sqlite3` next
+to the database, then migrates inside a single transaction. Earlier results are
+kept with their original lesson titles; earlier custom-practice results become
+custom sessions. Older results have no duration or per-key data. If the backup
+cannot be written, the database is left unchanged and the error is shown.
 
-The pre-launch rewrite starts with a fresh schema. Earlier development databases
-are not imported, modified, or deleted; no backward-compatibility layer is included.
+Databases with an unknown schema version, such as one written by a newer
+release, are rejected without being modified. To start fresh, close the app and
+move `progress.sqlite3` and its `-wal`/`-shm` files out of the app-data folder,
+then restart. History loads newest first in pages of 100 results.
 
 ## Architecture
 
@@ -146,9 +169,12 @@ are not imported, modified, or deleted; no backward-compatibility layer is inclu
 | Data storage | SQLite through rusqlite, with SQLite bundled at compile time |
 | Frontend/backend communication | Tauri IPC with typed command payloads |
 
-The frontend invokes `get_lessons`, `get_progress`, and `save_progress` directly
-through Tauri. Rust serializes database access on a background worker and validates
-the command payloads; the webview cannot submit SQL or choose database paths.
+The frontend invokes `get_lessons`, `get_summary`, `get_progress`, and
+`save_progress` directly through Tauri. The lesson catalog is compiled into the
+binary, so lessons load even when storage is unavailable; practice text for
+generated lessons, smart practice, and speed tests is built in the frontend from a
+bundled word list. Rust serializes database access on a background worker and
+validates the command payloads; the webview cannot submit SQL or choose database paths.
 The app makes no HTTP requests. There is no in-app updater, CORS configuration,
 API tokens, or shell plugin.
 SQLite retains WAL mode, full synchronization, foreign keys, and a write timeout.
@@ -159,19 +185,21 @@ Project layout:
 
 ```text
 frontend/src/
-  domain/           Plain TypeScript exercise state, models, and keyboard mapping
-  services/         Typed desktop client and optional UI preferences
+  domain/           Plain TypeScript: typing engine, keyboard map, drill generator,
+                    word list, statistics helpers, and models
+  services/         Typed desktop client, settings, and UI preferences
   composables/      App coordination and DOM typing lifecycle
-  shell/            Navigation drawer
-  features/         Practice, custom text, history, and updates views
-  styles/           Shared visual theme
-frontend/tests/     Domain, command boundary, and app-state regression tests
+  shell/            Sidebar navigation and icons
+  features/         Learn, smart practice, speed test, custom text, practice
+                    session, statistics, and settings views
+  styles/           Design tokens (light and dark) and shared components
+frontend/tests/     Domain, generator, command boundary, and app-state tests
 frontend/e2e/       Browser interaction tests with a mocked native boundary
 src-tauri/src/
-  content/          Built-in lesson text
+  content/          Built-in lesson catalog
   models.rs         Command payloads and validation
   commands.rs       Thin asynchronous IPC handlers
-  storage/          SQLite repository, schema, and persistence tests
+  storage/          SQLite repository, schema, v1 migration, and persistence tests
 scripts/            Release version checks
 packaging/flatpak/ Flatpak manifest, desktop entry, AppStream metadata, bundle script
 .github/            Build/release workflow and Dependabot configuration
@@ -223,8 +251,9 @@ After the Linux job passes, GitHub Actions attaches the package and publishes
 the prerelease automatically. The release job uses GitHub's automatic token.
 The workflow checks that version files and tags agree, runs frontend regression
 tests and JavaScript dependency audits, and tests the native Rust backend's
-validation, history pagination, and persistence. Browser tests cover completing,
-repeating, navigating, and custom practice; a packaged startup check verifies
+validation, history pagination, persistence, statistics, and the backed-up
+version 1 migration. Browser tests cover completing, repeating, navigating,
+restarting, custom practice, and persisted settings; a packaged startup check verifies
 the installed Flatpak stays open and initializes storage. Actions are
 pinned to commit IDs. Published releases cannot be overwritten by
 a rerun; use a new version tag. Releases include `SHA256SUMS` for the package.

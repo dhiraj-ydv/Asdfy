@@ -6,7 +6,14 @@
   <name>TypeDH</name>
   <summary>Colemak-DH typing tutor</summary>
   <description>
-    <p>TypeDH is a focused desktop touch-typing tutor with progressive Colemak-DH lessons, live finger guidance, and private local progress tracking.</p>
+    <p>TypeDH is a focused desktop touch-typing tutor for the Colemak-DH layout. Everything stays on your computer.</p>
+    <ul>
+      <li>A staged course that introduces a few keys at a time with real-word drills</li>
+      <li>Smart practice that targets the keys you miss most or type slowest</li>
+      <li>Timed speed tests and practice with your own text</li>
+      <li>Live keyboard and finger guidance, including Shift</li>
+      <li>Statistics with speed trends, a per-key heatmap, and an activity calendar</li>
+    </ul>
   </description>
   <launchable type="desktop-id">io.github.exolithelabs.typedh.desktop</launchable>
   <releases>

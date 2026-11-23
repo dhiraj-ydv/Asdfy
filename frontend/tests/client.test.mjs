@@ -8,7 +8,11 @@ test('desktop boundary sends bounded structured commands', async () => {
   await client.lessons();
   await client.history('User1');
   await client.history('User1', 42);
-  const input = { username: 'User1', lesson_id: 999, wpm: 42, accuracy: 0 };
+  await client.summary('User1');
+  const input = {
+    username: 'User1', mode: 'custom', lesson_id: null, wpm: 42, raw_wpm: 45, accuracy: 0,
+    duration_ms: 1000, characters: 10, errors: 10, keys: [],
+  };
   await client.save(input);
   await client.close();
   await client.restart();
@@ -17,6 +21,7 @@ test('desktop boundary sends bounded structured commands', async () => {
     ['get_lessons', undefined],
     ['get_progress', { username: 'User1', limit: 100, before: null }],
     ['get_progress', { username: 'User1', limit: 100, before: 42 }],
+    ['get_summary', { username: 'User1' }],
     ['save_progress', { input }], ['stop_application', undefined],
     ['restart_application', undefined], ['app_version', undefined],
   ]);
@@ -25,6 +30,9 @@ test('desktop boundary sends bounded structured commands', async () => {
 test('save failures propagate without retrying a potentially committed write', async () => {
   let writes = 0;
   const client = createClient(async () => { writes++; throw new Error('Storage unavailable'); });
-  await assert.rejects(client.save({ username: 'User1', lesson_id: 1, wpm: 42, accuracy: 98 }));
+  await assert.rejects(client.save({
+    username: 'User1', mode: 'lesson', lesson_id: 101, wpm: 42, raw_wpm: 42, accuracy: 98,
+    duration_ms: 1000, characters: 10, errors: 0, keys: [],
+  }));
   assert.equal(writes, 1);
 });

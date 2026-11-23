@@ -1,51 +1,136 @@
 use super::*;
-use crate::models::{ProgressInput, CUSTOM_LESSON_ID};
+use crate::content::LESSONS;
+use crate::models::{KeyStat, ProgressInput};
+use rusqlite::Connection;
+use std::{collections::HashSet, fs, path::Path};
 use tempfile::tempdir;
 
-fn score(id: i64, wpm: f64) -> ProgressInput {
-    ProgressInput { username: "User1".into(), lesson_id: id, wpm, accuracy: 0.0 }
+const VERSION_1_SCHEMA: &str = "
+CREATE TABLE lessons (id INTEGER PRIMARY KEY, title TEXT NOT NULL, content TEXT NOT NULL, level INTEGER NOT NULL);
+CREATE TABLE results (
+    id INTEGER PRIMARY KEY,
+    username TEXT NOT NULL CHECK(length(username) BETWEEN 1 AND 80),
+    lesson_id INTEGER NOT NULL REFERENCES lessons(id),
+    wpm REAL NOT NULL CHECK(wpm BETWEEN 0 AND 1000),
+    accuracy REAL NOT NULL CHECK(accuracy BETWEEN 0 AND 100),
+    completed_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+);
+CREATE INDEX results_by_user ON results(username, id DESC);
+PRAGMA user_version = 1;";
+
+fn session(mode: &str, lesson_id: Option<i64>, wpm: f64) -> ProgressInput {
+    ProgressInput {
+        username: "User1".into(), mode: mode.into(), lesson_id, wpm, raw_wpm: wpm, accuracy: 0.0,
+        duration_ms: 1000, characters: 10, errors: 0, keys: vec![],
+    }
+}
+
+fn lesson(wpm: f64) -> ProgressInput {
+    session("lesson", Some(LESSONS[0].id), wpm)
+}
+
+fn key(symbol: &str, hits: i64, misses: i64) -> KeyStat {
+    KeyStat { key: symbol.into(), hits, misses, time_ms: hits * 200 }
+}
+
+fn backups(directory: &Path) -> Vec<String> {
+    fs::read_dir(directory).unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .filter(|name| name.starts_with("progress.v1-backup-"))
+        .collect()
 }
 
 #[test]
-fn first_launch_seeds_lessons_and_restart_retains_results() {
+fn catalog_is_consistent() {
+    let mut ids = HashSet::new();
+    for lesson in LESSONS {
+        assert!(ids.insert(lesson.id), "duplicate lesson {}", lesson.id);
+        assert!(lesson.id > 100, "lesson ids 1–28 and 999 are reserved for version 1 data");
+        assert!(["keys", "words", "caps", "punctuation", "numbers", "text"].contains(&lesson.kind));
+        assert_eq!(lesson.kind == "text", !lesson.content.is_empty());
+        assert_eq!(lesson.kind == "keys", !lesson.keys.is_empty());
+    }
+}
+
+#[test]
+fn first_launch_creates_storage_and_restart_retains_results() {
     let directory = tempdir().unwrap();
     {
         let mut repository = Repository::open(directory.path()).unwrap();
-        let lessons = repository.lessons().unwrap();
-        assert_eq!(lessons.len(), 28);
-        repository.save(score(lessons[0].id, 42.0)).unwrap();
-        repository.save(score(CUSTOM_LESSON_ID, 50.0)).unwrap();
+        let mut input = lesson(42.0);
+        input.keys = vec![key("a", 3, 1)];
+        repository.save(input).unwrap();
+        repository.save(session("custom", None, 50.0)).unwrap();
     }
     let repository = Repository::open(directory.path()).unwrap();
     let history = repository.history("User1", 100, None).unwrap();
     assert_eq!(history.len(), 2);
-    assert_eq!(history[0].lesson_id, CUSTOM_LESSON_ID);
-    assert_eq!(history[0].accuracy, 0.0);
+    assert_eq!(history[0].mode, "custom");
+    assert_eq!(history[0].lesson_id, None);
+    assert_eq!(history[0].duration_ms, Some(1000));
     assert!(history[0].completed_at.ends_with('Z'));
+    assert_eq!(history[1].lesson_title.as_deref(), Some(LESSONS[0].title));
+    let summary = repository.summary("User1").unwrap();
+    assert_eq!((summary.sessions, summary.duration_ms, summary.best_wpm), (2, 2000, 50.0));
+    assert_eq!(summary.lessons.len(), 1);
+    assert_eq!(summary.lessons[0].attempts, 1);
+    assert_eq!(summary.modes.len(), 2);
+    assert_eq!(summary.days.len(), 1);
+    assert_eq!(summary.days[0].sessions, 2);
+    assert_eq!(summary.keys.len(), 1);
 }
 
 #[test]
-fn invalid_scores_never_create_results() {
+fn key_statistics_accumulate_per_user() {
     let directory = tempdir().unwrap();
     let mut repository = Repository::open(directory.path()).unwrap();
-    for speed in [f64::NAN, f64::INFINITY, -1.0, 1001.0] { assert!(repository.save(score(1, speed)).is_err()); }
-    for id in [-1, 0, 29, 998, i64::MAX] { assert!(repository.save(score(id, 20.0)).is_err()); }
+    for _ in 0..2 {
+        let mut input = session("adaptive", None, 30.0);
+        input.keys = vec![key("a", 5, 1), key(" ", 4, 0)];
+        repository.save(input).unwrap();
+    }
+    let keys = repository.summary("User1").unwrap().keys;
+    let a = keys.iter().find(|stat| stat.key == "a").unwrap();
+    assert_eq!((a.hits, a.misses, a.time_ms), (10, 2, 2000));
+    assert_eq!(keys.len(), 2);
+    assert!(repository.summary("another user").unwrap().keys.is_empty());
+}
+
+#[test]
+fn invalid_sessions_never_create_results() {
+    let directory = tempdir().unwrap();
+    let mut repository = Repository::open(directory.path()).unwrap();
+    for speed in [f64::NAN, f64::INFINITY, -1.0, 1001.0] { assert!(repository.save(lesson(speed)).is_err()); }
+    for id in [-1, 0, 1, 28, 999, i64::MAX] { assert!(repository.save(session("lesson", Some(id), 20.0)).is_err()); }
+    assert!(repository.save(session("lesson", None, 20.0)).is_err());
+    assert!(repository.save(session("custom", Some(LESSONS[0].id), 20.0)).is_err());
+    assert!(repository.save(session("race", None, 20.0)).is_err());
     for accuracy in [f64::NAN, f64::INFINITY, -1.0, 101.0] {
-        let mut input = score(1, 20.0);
+        let mut input = lesson(20.0);
         input.accuracy = accuracy;
         assert!(repository.save(input).is_err());
     }
-    let mut input = score(1, 20.0);
+    let mut input = lesson(20.0);
+    input.duration_ms = 0;
+    assert!(repository.save(input).is_err());
+    let mut input = lesson(20.0);
+    input.keys = vec![key("ab", 1, 0)];
+    assert!(repository.save(input).is_err());
+    let mut input = lesson(20.0);
+    input.keys = (0..257).map(|_| key("a", 1, 0)).collect();
+    assert!(repository.save(input).is_err());
+    let mut input = lesson(20.0);
     input.username = " ".into();
     assert!(repository.save(input).is_err());
     assert!(repository.history("User1", 100, None).unwrap().is_empty());
+    assert!(repository.summary("User1").unwrap().keys.is_empty());
 }
 
 #[test]
 fn history_is_newest_first_bounded_and_private() {
     let directory = tempdir().unwrap();
     let mut repository = Repository::open(directory.path()).unwrap();
-    for speed in [10.0, 20.0, 30.0] { repository.save(score(1, speed)).unwrap(); }
+    for speed in [10.0, 20.0, 30.0] { repository.save(lesson(speed)).unwrap(); }
     let history = repository.history("User1", 2, None).unwrap();
     assert_eq!(history.iter().map(|entry| entry.wpm).collect::<Vec<_>>(), [30.0, 20.0]);
     assert_eq!(repository.history("User1", 2, Some(history[1].id)).unwrap()[0].wpm, 10.0);
@@ -56,26 +141,73 @@ fn history_is_newest_first_bounded_and_private() {
 
 #[test]
 fn payloads_are_strict_and_storage_open_can_be_retried() {
+    let valid = r#"{"username":"User1","mode":"custom","lesson_id":null,"wpm":1,"raw_wpm":1,"accuracy":100,"duration_ms":10,"characters":1,"errors":0,"keys":[{"key":"a","hits":1,"misses":0,"time_ms":0}]}"#;
+    assert!(serde_json::from_str::<ProgressInput>(valid).is_ok());
     for value in [
-        r#"{"username":"User1","lesson_id":true,"wpm":1,"accuracy":100}"#,
-        r#"{"username":"User1","lesson_id":1,"wpm":"10","accuracy":100}"#,
-        r#"{"username":"User1","lesson_id":1,"wpm":10,"accuracy":100,"sql":"DROP TABLE results"}"#,
+        r#"{"username":"User1","mode":"lesson","lesson_id":true,"wpm":1,"raw_wpm":1,"accuracy":100,"duration_ms":10,"characters":1,"errors":0,"keys":[]}"#,
+        r#"{"username":"User1","mode":"custom","lesson_id":null,"wpm":"10","raw_wpm":1,"accuracy":100,"duration_ms":10,"characters":1,"errors":0,"keys":[]}"#,
+        r#"{"username":"User1","mode":"custom","lesson_id":null,"wpm":1,"raw_wpm":1,"accuracy":100,"duration_ms":10,"characters":1,"errors":0,"keys":[],"sql":"DROP TABLE results"}"#,
+        r#"{"username":"User1","mode":"custom","lesson_id":null,"wpm":1,"raw_wpm":1,"accuracy":100,"duration_ms":10,"characters":1,"errors":0,"keys":[{"key":"a","hits":1,"misses":0,"time_ms":0,"x":1}]}"#,
     ] { assert!(serde_json::from_str::<ProgressInput>(value).is_err()); }
     let directory = tempdir().unwrap();
     let blocked = directory.path().join("blocked");
-    std::fs::write(&blocked, b"not a directory").unwrap();
+    fs::write(&blocked, b"not a directory").unwrap();
     let storage = Storage::new(blocked.clone());
-    assert!(storage.access(|repository| repository.lessons()).is_err());
-    std::fs::remove_file(blocked).unwrap();
-    assert_eq!(storage.access(|repository| repository.lessons()).unwrap().len(), 28);
+    assert!(storage.access(|repository| repository.summary("User1")).is_err());
+    fs::remove_file(blocked).unwrap();
+    assert_eq!(storage.access(|repository| repository.summary("User1")).unwrap().sessions, 0);
+}
+
+#[test]
+fn version_1_database_is_backed_up_then_migrated_once() {
+    let directory = tempdir().unwrap();
+    {
+        let connection = Connection::open(directory.path().join("progress.sqlite3")).unwrap();
+        connection.execute_batch(VERSION_1_SCHEMA).unwrap();
+        connection.execute_batch(
+            "INSERT INTO lessons VALUES (1,'Home Row - Basic','arst neio',1),(999,'Custom Practice','',99);
+             INSERT INTO results(username,lesson_id,wpm,accuracy) VALUES ('User1',1,30,95),('User1',999,40,90);",
+        ).unwrap();
+    }
+    let mut repository = Repository::open(directory.path()).unwrap();
+    let history = repository.history("User1", 100, None).unwrap();
+    assert_eq!(history.len(), 2);
+    assert_eq!((history[0].mode.as_str(), history[0].lesson_id, history[0].wpm), ("custom", None, 40.0));
+    assert_eq!((history[1].mode.as_str(), history[1].lesson_id), ("lesson", Some(1)));
+    assert_eq!(history[1].lesson_title.as_deref(), Some("Home Row - Basic"));
+    assert_eq!(history[1].duration_ms, None);
+    repository.save(lesson(50.0)).unwrap();
+    assert_eq!(repository.summary("User1").unwrap().sessions, 3);
+
+    let saved = backups(directory.path());
+    assert_eq!(saved.len(), 1);
+    let backup = Connection::open(directory.path().join(&saved[0])).unwrap();
+    let version: i32 = backup.pragma_query_value(None, "user_version", |row| row.get(0)).unwrap();
+    let rows: i64 = backup.query_row("SELECT count(*) FROM results WHERE lesson_id IN (1, 999)", [], |row| row.get(0)).unwrap();
+    assert_eq!((version, rows), (1, 2));
+
+    drop(repository);
+    Repository::open(directory.path()).unwrap();
+    assert_eq!(backups(directory.path()).len(), 1);
+}
+
+#[test]
+fn unknown_database_formats_are_left_unchanged() {
+    let directory = tempdir().unwrap();
+    let path = directory.path().join("progress.sqlite3");
+    Connection::open(&path).unwrap().execute_batch("CREATE TABLE future(x); PRAGMA user_version = 9;").unwrap();
+    let before = fs::read(&path).unwrap();
+    assert!(Repository::open(directory.path()).is_err());
+    assert_eq!(fs::read(&path).unwrap(), before);
+    assert!(backups(directory.path()).is_empty());
 }
 
 #[test]
 fn previous_development_database_is_not_read_or_changed() {
     let directory = tempdir().unwrap();
     let previous = directory.path().join("colemak.db");
-    std::fs::write(&previous, b"previous development data").unwrap();
+    fs::write(&previous, b"previous development data").unwrap();
     Repository::open(directory.path()).unwrap();
-    assert_eq!(std::fs::read(previous).unwrap(), b"previous development data");
+    assert_eq!(fs::read(previous).unwrap(), b"previous development data");
     assert!(directory.path().join("progress.sqlite3").exists());
 }

@@ -2,56 +2,55 @@
 import { computed, onMounted } from 'vue';
 import { useTutor } from './composables/useTutor';
 import { desktop } from './services/desktop';
-import AppDrawer from './shell/AppDrawer.vue';
+import { MODE_VIEWS } from './domain/models';
+import { streak } from './domain/stats';
+import AppSidebar from './shell/AppSidebar.vue';
 import PracticeView from './features/practice/PracticeView.vue';
-import CustomPractice from './features/custom/CustomPractice.vue';
-import ProgressHistory from './features/history/ProgressHistory.vue';
-import UpdatesView from './features/updates/UpdatesView.vue';
-import ResultDialog from './features/practice/ResultDialog.vue';
+import LearnView from './features/learn/LearnView.vue';
+import AdaptiveView from './features/adaptive/AdaptiveView.vue';
+import TestView from './features/test/TestView.vue';
+import CustomView from './features/custom/CustomView.vue';
+import StatsView from './features/stats/StatsView.vue';
+import SettingsView from './features/settings/SettingsView.vue';
 
 const tutor = useTutor(desktop);
-const { lessons, currentLesson, view, drawerOpen, loading, error, history,
-  historyLoading, historyError, hasMore, result, saving, saveMessage,
-  installedVersion, versionError, exerciseKey } = tutor;
-const practiceEnabled = computed(() => view.value === 'lesson' && !drawerOpen.value && !result.value && !loading.value);
+const {
+  lessons, summary, view, session, sessionKey, loading, error, history, historyLoading, historyError, hasMore,
+  result, previousBest, saving, saveMessage, customText, adaptiveOptions, testOptions, installedVersion,
+  versionError, passed, upNext, learned, hasNextLesson,
+} = tutor;
+const inSession = computed(() => !!session.value && MODE_VIEWS[session.value.mode] === view.value);
+const practiceEnabled = computed(() => inSession.value && !result.value && !loading.value);
+const testBest = computed(() => summary.value.modes.find(entry => entry.mode === 'test') ?? null);
+const streakDays = computed(() => streak(summary.value.days));
 onMounted(tutor.load);
 </script>
 
 <template>
-  <div class="app-container">
-    <AppDrawer :open="drawerOpen" :view="view" :lessons="lessons" :selected-id="currentLesson?.id"
-      :busy="saving" @close="drawerOpen = false" @navigate="tutor.navigate"
-      @select="tutor.selectLesson" @control="tutor.control" />
-
-    <header class="app-header">
-      <div class="header-left">
-        <button class="hamburger-btn" aria-label="Open menu" :aria-expanded="drawerOpen" @click="drawerOpen = !drawerOpen">☰</button>
-        <div class="logo"><h1>TypeDH</h1></div>
+  <div class="app">
+    <AppSidebar :view="view" :busy="saving" :streak="streakDays" @navigate="tutor.navigate" />
+    <main class="content">
+      <div v-if="error" class="banner" role="alert">
+        <p>{{ error }}</p>
+        <button class="btn btn-secondary" :disabled="loading || saving" @click="tutor.load">Retry</button>
       </div>
-      <div class="current-lesson-name">{{ currentLesson?.title || 'No Lesson Selected' }}</div>
-    </header>
-
-    <p v-if="loading" role="status">Loading your lessons…</p>
-    <div v-if="error" class="error-banner" role="alert">
-      <p>{{ error }}</p>
-      <button :disabled="loading || saving" @click="tutor.load">Retry loading</button>
-    </div>
-    <main v-if="!loading" class="main-view" :inert="drawerOpen || !!result">
-      <PracticeView v-if="view === 'lesson' && currentLesson" :key="exerciseKey"
-        :lesson="currentLesson" :enabled="practiceEnabled" @complete="tutor.complete" />
-      <CustomPractice v-else-if="view === 'custom'" @start="tutor.customPractice" />
-      <ProgressHistory v-else-if="view === 'history'" :entries="history" :loading="historyLoading"
-        :error="historyError" :has-more="hasMore" @retry="tutor.loadHistory()" @more="tutor.loadHistory(true)" />
-      <UpdatesView v-else-if="view === 'updates'" :version="installedVersion" :error="versionError" />
+      <p v-if="loading" class="page muted" role="status">Loading your lessons…</p>
+      <template v-else>
+        <PracticeView v-if="inSession && session" :key="sessionKey" :session="session" :enabled="practiceEnabled"
+          :result="result" :saving="saving" :message="saveMessage" :previous-best="previousBest" :has-next="hasNextLesson"
+          @complete="tutor.complete" @next="tutor.next" @retry="tutor.retry" @leave="tutor.leave" />
+        <LearnView v-else-if="view === 'learn'" :lessons="lessons" :bests="summary.lessons" :passed="passed"
+          :up-next="upNext" :first-run="summary.sessions === 0" @start="tutor.startLesson" @practice="tutor.navigate('adaptive')" />
+        <AdaptiveView v-else-if="view === 'adaptive'" :learned="learned" :keys="summary.keys" :options="adaptiveOptions"
+          @start="tutor.startAdaptive" />
+        <TestView v-else-if="view === 'test'" :options="testOptions" :best="testBest?.best_wpm ?? null"
+          :sessions="testBest?.sessions ?? 0" @start="tutor.startTest" />
+        <CustomView v-else-if="view === 'custom'" v-model="customText" @start="tutor.startCustom" />
+        <StatsView v-else-if="view === 'stats'" :summary="summary" :history="history" :loading="historyLoading"
+          :error="historyError" :has-more="hasMore" @retry="tutor.loadHistory()" @more="tutor.loadHistory(true)" />
+        <SettingsView v-else-if="view === 'settings'" :version="installedVersion" :error="versionError"
+          @control="tutor.control" />
+      </template>
     </main>
-    <ResultDialog v-if="result" :score="result" :saving="saving" :message="saveMessage"
-      @next="tutor.nextLesson" @again="tutor.practiceAgain" />
   </div>
 </template>
-
-<style scoped>
-.error-banner { padding: 12px 20px; border: 1px solid var(--error-color); border-radius: 8px; }
-.header-left { display: flex; align-items: center; gap: 15px; }
-.app-header h1 { font-size: 1.2rem; margin: 0; }
-.current-lesson-name { font-weight: 600; color: var(--text-muted); font-size: 0.9rem; }
-</style>

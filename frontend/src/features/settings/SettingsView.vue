@@ -1,0 +1,83 @@
+<script setup lang="ts">
+import { settings } from '../../services/settings';
+import Icon from '../../shell/Icon.vue';
+
+defineProps<{ version: string; error: string }>();
+const emit = defineEmits<{ control: [action: 'restart' | 'close'] }>();
+const DATA_PATH = '~/.var/app/io.github.exolithelabs.typedh/data/io.github.exolithelabs.typedh/';
+</script>
+
+<template>
+  <section class="page">
+    <header class="page-header">
+      <h1>Settings</h1>
+      <p>Preferences apply immediately and are remembered on this computer.</p>
+    </header>
+
+    <div class="card section">
+      <h2>Appearance</h2>
+      <fieldset class="field">
+        <legend>Theme</legend>
+        <div class="segmented">
+          <label v-for="theme in (['system', 'light', 'dark'] as const)" :key="theme">
+            <input v-model="settings.theme" type="radio" name="theme" :value="theme" /><span>{{ theme[0]!.toUpperCase() + theme.slice(1) }}</span>
+          </label>
+        </div>
+      </fieldset>
+      <fieldset class="field">
+        <legend>Typing text size</legend>
+        <div class="segmented">
+          <label v-for="size in (['small', 'medium', 'large'] as const)" :key="size">
+            <input v-model="settings.textSize" type="radio" name="size" :value="size" /><span>{{ size[0]!.toUpperCase() + size.slice(1) }}</span>
+          </label>
+        </div>
+      </fieldset>
+    </div>
+
+    <div class="card section">
+      <h2>Practice</h2>
+      <label class="switch">
+        <input v-model="settings.stopOnError" type="checkbox" role="switch" />
+        <span class="switch-track"></span>
+        <span class="switch-text">Stop on errors<small>The cursor waits until you type the correct key. Mistakes still count.</small></span>
+      </label>
+      <label class="switch">
+        <input v-model="settings.showKeyboard" type="checkbox" role="switch" />
+        <span class="switch-track"></span>
+        <span class="switch-text">Show keyboard<small>Highlights the next key, coloured by the finger that types it.</small></span>
+      </label>
+      <label class="switch">
+        <input v-model="settings.showHands" type="checkbox" role="switch" />
+        <span class="switch-track"></span>
+        <span class="switch-text">Show finger guide<small>Shows which finger to use, including the Shift pinky.</small></span>
+      </label>
+    </div>
+
+    <div class="card section">
+      <h2>Keyboard layout</h2>
+      <p class="muted">TypeDH does not change your keyboard layout. Enable Colemak-DH (ANSI) in your desktop's
+        keyboard settings; the tutor checks the characters your keyboard produces.</p>
+    </div>
+
+    <div class="card section">
+      <h2>About and updates</h2>
+      <p v-if="version">TypeDH version {{ version }}</p>
+      <p v-if="error" class="error" role="alert">{{ error }}</p>
+      <p class="muted">Update by installing a newer <code>.flatpak</code> bundle from GitHub Releases with
+        <code>flatpak install --user</code>. Lessons and progress are kept.</p>
+      <p class="muted">Progress is stored in <code>{{ DATA_PATH }}</code>. Quit the app before copying it as a backup.</p>
+      <div class="controls">
+        <button class="btn btn-secondary" @click="emit('control', 'restart')"><Icon name="restart" />Restart app</button>
+        <button class="btn btn-ghost btn-danger" @click="emit('control', 'close')"><Icon name="power" />Quit app</button>
+      </div>
+    </div>
+  </section>
+</template>
+
+<style scoped>
+.section { display: flex; flex-direction: column; gap: 18px; }
+.section > p { max-width: 70ch; }
+code { font-size: 0.85em; padding: 1px 5px; border-radius: 4px; background: var(--surface-2); word-break: break-all; }
+.controls { display: flex; gap: 10px; flex-wrap: wrap; }
+.error { color: var(--danger); font-weight: 600; }
+</style>
