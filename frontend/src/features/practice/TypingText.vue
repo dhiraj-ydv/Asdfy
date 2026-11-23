@@ -56,7 +56,7 @@ onUnmounted(() => observer?.disconnect());
   <div ref="root" class="typing-text" :class="{ blurred: !focused }" :data-text="text" aria-hidden="true">
     <div ref="inner" class="text-inner" :style="{ transform: `translateY(${-offset}px)` }">
       <span v-for="word in words" :key="word.start" class="word"><span v-for="(character, position) in word.characters"
-        :key="position" v-memo="[state(word.start + position)]" class="char"
+        :key="position" class="char"
         :class="[state(word.start + position), { space: character === ' ' }]">{{ character }}</span></span>
       <span v-show="caret.visible && focused" class="caret" :class="{ waiting: !started }"
         :style="{ transform: `translate(${caret.x}px, ${caret.y}px)`, height: `${caret.height}px` }"></span>

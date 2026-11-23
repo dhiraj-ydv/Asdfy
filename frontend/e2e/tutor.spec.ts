@@ -55,6 +55,8 @@ const typingInput = (page: Page) => page.getByLabel('Type the displayed text her
 async function typeShownText(page: Page) {
   await expect(typingInput(page)).toBeFocused();
   const text = await page.locator('.typing-text').getAttribute('data-text');
+  // What is drawn must match what is judged, character for character.
+  await expect(page.locator('.text-inner')).toHaveText(text ?? '');
   await page.keyboard.type(text ?? '', { delay: 30 });
 }
 
