@@ -73,7 +73,7 @@ jobs:
             artifact: Asdfy-Windows-x86_64
             path: src-tauri/target/release/bundle/nsis/*-setup.exe
           - name: macOS
-            os: macos-14
+            os: macos-15
             bundles: dmg
             target: universal-apple-darwin
             rust-targets: aarch64-apple-darwin,x86_64-apple-darwin

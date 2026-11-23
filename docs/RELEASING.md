@@ -10,7 +10,7 @@ produces three artifacts, each built on its own operating system:
 | --- | --- | --- |
 | `Asdfy-Linux-x86_64` | `ubuntu-22.04` | `Asdfy_<version>_amd64.AppImage` |
 | `Asdfy-Windows-x86_64` | `windows-2022` | `Asdfy_<version>_x64-setup.exe` (NSIS) |
-| `Asdfy-macOS-universal` | `macos-14` | `Asdfy_<version>_universal.dmg` |
+| `Asdfy-macOS-universal` | `macos-15` | `Asdfy_<version>_universal.dmg` |
 
 Ordinary builds retain these as workflow artifacts for 14 days. Pushing a
 version tag publishes a GitHub prerelease with all three packages and a
