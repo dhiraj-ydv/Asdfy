@@ -1,0 +1,47 @@
+name: Verify updater signing key
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    name: Match secret to updater public key
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+      - name: Install signature verifier
+        run: sudo apt-get update && sudo apt-get install -y minisign
+      - name: Sign with the Actions secret and verify
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          if [[ -z "${TAURI_SIGNING_PRIVATE_KEY}" ]]; then
+            echo "TAURI_SIGNING_PRIVATE_KEY is missing or empty"
+            exit 1
+          fi
+          echo "private key is present (${#TAURI_SIGNING_PRIVATE_KEY} bytes)"
+          python3 - << 'PY'
+          import json, subprocess, base64, pathlib
+          raw = subprocess.check_output(
+              ["git", "show", "7bb828a^:src-tauri/tauri.conf.json"], text=True
+          )
+          pubkey = json.loads(raw)["plugins"]["updater"]["pubkey"]
+          pathlib.Path("updater.pub").write_bytes(base64.b64decode(pubkey))
+          pathlib.Path("payload.txt").write_text("asdfy-updater-key-check\n")
+          print("loaded historical updater public key")
+          PY
+          npm exec --yes --package @tauri-apps/cli@2.8.4 -- tauri signer sign payload.txt
+          base64 -d payload.txt.sig > payload.txt.minisig
+          minisign -V -p updater.pub -x payload.txt.minisig -m payload.txt
+          echo "TAURI_SIGNING_PRIVATE_KEY matches the updater public key"
