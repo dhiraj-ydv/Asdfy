@@ -30,7 +30,7 @@ jobs:
             echo "TAURI_SIGNING_PRIVATE_KEY is missing or empty"
             exit 1
           fi
-          echo "private key is present (${#TAURI_SIGNING_PRIVATE_KEY} bytes)"
+          echo "private key secret is present"
           python3 - << 'PY'
           import json, subprocess, base64, pathlib
           raw = subprocess.check_output(
@@ -41,7 +41,21 @@ jobs:
           pathlib.Path("payload.txt").write_text("asdfy-updater-key-check\n")
           print("loaded historical updater public key")
           PY
-          npm exec --yes --package @tauri-apps/cli@2.8.4 -- tauri signer sign payload.txt
+          sign() {
+            npm exec --yes --package @tauri-apps/cli@2.8.4 -- tauri signer sign payload.txt >sign-out.txt 2>sign-err.txt
+          }
+          if ! sign; then
+            if grep -qi "password" sign-err.txt; then
+              echo "retrying with an empty key password"
+              TAURI_SIGNING_PRIVATE_KEY_PASSWORD="" sign || {
+                echo "signing failed after the empty-password retry"
+                exit 1
+              }
+            else
+              echo "signing failed"
+              exit 1
+            fi
+          fi
           base64 -d payload.txt.sig > payload.txt.minisig
           minisign -V -p updater.pub -x payload.txt.minisig -m payload.txt
           echo "TAURI_SIGNING_PRIVATE_KEY matches the updater public key"
