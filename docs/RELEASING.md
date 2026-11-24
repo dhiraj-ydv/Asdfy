@@ -4,19 +4,21 @@
 
 The **Desktop build** workflow (`.github/workflows/desktop-build.yml`) runs on
 pull requests, pushes to `master`, version tags, and manual dispatches. It
-produces three artifacts, each built on its own operating system:
+produces three artifacts, each built on its own operating system, with five
+packages between them:
 
 | Artifact | Runner | File |
 | --- | --- | --- |
-| `Asdfy-Linux-x86_64` | `ubuntu-22.04` | `Asdfy_<version>_amd64.AppImage` |
+| `Asdfy-Linux-x86_64` | `ubuntu-22.04` | `Asdfy_<version>_amd64.AppImage`, `Asdfy_<version>_amd64.deb`, `Asdfy-<version>-1.x86_64.rpm` |
 | `Asdfy-Windows-x86_64` | `windows-2022` | `Asdfy_<version>_x64-setup.exe` (NSIS) |
 | `Asdfy-macOS-universal` | `macos-15` | `Asdfy_<version>_universal.dmg` |
 
 Ordinary builds retain these as workflow artifacts for 14 days. Pushing a
-version tag publishes a GitHub prerelease with all three packages and a
+version tag publishes a GitHub prerelease with all five packages and a
 `SHA256SUMS` file. This uses the automatic per-run `GITHUB_TOKEN`; no personal
 access token is required. The release job refuses to publish unless exactly
-three packages were built, and an already published release cannot be
+five packages were built (the Linux artifact's folders are flattened first, so
+`SHA256SUMS` lists plain file names), and an already published release cannot be
 overwritten by rerunning the workflow; create a new version instead.
 
 ## Jobs
@@ -29,10 +31,14 @@ overwritten by rerunning the workflow; create a new version instead.
    (`cargo test --locked --lib`) on each platform, then
    `npm run tauri -- build --bundles <format>`, which builds the frontend and the
    release binary and bundles it:
-   - Linux installs the WebKitGTK 4.1 build prerequisites and `libfuse2`, builds
-     the AppImage, then starts it under Xvfb for 20 seconds and checks that it
-     stayed open and created
-     `~/.local/share/io.github.exolithelabs.asdfy/progress.sqlite3`.
+   - Linux installs the WebKitGTK 4.1 build prerequisites, `libfuse2` (only the
+     build runner gets it; the finished AppImage does not need it), and `rpm`, then
+     builds the
+     AppImage, `.deb`, and `.rpm`. It starts the AppImage, then installs the `.deb`
+     and starts that, each under Xvfb for 20 seconds, checking that it stayed open
+     and created `~/.local/share/io.github.exolithelabs.asdfy/progress.sqlite3`.
+     The runner cannot install an RPM, so the `.rpm` is checked with `rpm -qip`,
+     `-qpR`, and `-qpl` instead.
    - Windows builds the per-user NSIS installer (`installMode: currentUser`).
    - macOS adds the `aarch64` and `x86_64` Rust targets and builds a
      `universal-apple-darwin` disk image.

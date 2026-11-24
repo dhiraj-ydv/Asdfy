@@ -60,11 +60,14 @@ jobs:
           # Ubuntu 22.04's older glibc lets the AppImage run on more distributions.
           - name: Linux
             os: ubuntu-22.04
-            bundles: appimage
+            bundles: appimage,deb,rpm
             target: ''
             rust-targets: ''
             artifact: Asdfy-Linux-x86_64
-            path: src-tauri/target/release/bundle/appimage/*.AppImage
+            path: |
+              src-tauri/target/release/bundle/appimage/*.AppImage
+              src-tauri/target/release/bundle/deb/*.deb
+              src-tauri/target/release/bundle/rpm/*.rpm
           - name: Windows
             os: windows-2022
             bundles: nsis
@@ -89,7 +92,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
-            libxdo-dev libssl-dev patchelf file libfuse2 xvfb
+            libxdo-dev libssl-dev patchelf file libfuse2 xvfb rpm
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
@@ -123,22 +126,42 @@ jobs:
           if [[ -n "${{ matrix.target }}" ]]; then args+=(--target "${{ matrix.target }}"); fi
           npm run tauri -- "${args[@]}"
 
-      - name: AppImage startup smoke test
+      - name: Linux package smoke tests
         if: runner.os == 'Linux'
         run: |
-          app=$(ls src-tauri/target/release/bundle/appimage/*.AppImage)
-          chmod +x "$app"
-          set +e
-          xvfb-run -a dbus-run-session -- timeout 20s env GDK_BACKEND=x11 LIBGL_ALWAYS_SOFTWARE=1 \
-            APPIMAGE_EXTRACT_AND_RUN=1 "$app" > /tmp/asdfy-startup.log 2>&1
-          status=$?
-          set -e
-          cat /tmp/asdfy-startup.log
-          if [[ "$status" != 124 ]]; then
-            echo "Application exited during startup (status $status)" >&2
-            exit 1
-          fi
-          test -f "$HOME/.local/share/io.github.exolithelabs.asdfy/progress.sqlite3"
+          bundle=src-tauri/target/release/bundle
+          data="$HOME/.local/share/io.github.exolithelabs.asdfy"
+          # Each package must stay open for 20 seconds and create its database.
+          launch() {
+            set +e
+            xvfb-run -a dbus-run-session -- timeout 20s env GDK_BACKEND=x11 LIBGL_ALWAYS_SOFTWARE=1 \
+              APPIMAGE_EXTRACT_AND_RUN=1 "$1" > /tmp/asdfy-startup.log 2>&1
+            status=$?
+            set -e
+            cat /tmp/asdfy-startup.log
+            if [[ "$status" != 124 ]]; then
+              echo "$1 exited during startup (status $status)" >&2
+              exit 1
+            fi
+            test -f "$data/progress.sqlite3"
+            rm -rf "$data"
+          }
+
+          appimage=$(ls "$bundle"/appimage/*.AppImage)
+          chmod +x "$appimage"
+          launch "$appimage"
+
+          deb=$(ls "$PWD/$bundle"/deb/*.deb)
+          dpkg-deb --info "$deb"
+          sudo apt-get install -y "$deb"
+          package=$(dpkg-deb --field "$deb" Package)
+          launch "$(dpkg -L "$package" | grep -m1 '^/usr/bin/')"
+
+          # The runner cannot install an RPM, but it can check that the package is well formed.
+          rpm=$(ls "$bundle"/rpm/*.rpm)
+          rpm -qip "$rpm"
+          rpm -qpR "$rpm"
+          rpm -qpl "$rpm" | grep -q '^/usr/bin/'
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -169,9 +192,13 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
+          # The Linux artifact keeps appimage/, deb/ and rpm/ folders; flatten them so
+          # SHA256SUMS names files exactly as they are published.
+          find release-artifacts -mindepth 2 -type f -exec mv -t release-artifacts {} +
+          find release-artifacts -mindepth 1 -type d -empty -delete
           mapfile -d '' files < <(find release-artifacts -type f -print0)
-          if [[ ${#files[@]} -ne 3 ]]; then
-            echo "Expected 3 packages (AppImage, Windows installer, macOS disk image), found ${#files[@]}" >&2
+          if [[ ${#files[@]} -ne 5 ]]; then
+            echo "Expected 5 packages (AppImage, .deb, .rpm, Windows installer, macOS disk image), found ${#files[@]}" >&2
             exit 1
           fi
 

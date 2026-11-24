@@ -18,7 +18,9 @@ choose a version, and expand **Assets**.
 
 | Download | Platform |
 | --- | --- |
-| `Asdfy_<version>_amd64.AppImage` | Linux x86-64 |
+| `Asdfy_<version>_amd64.deb` | Debian 12+, Ubuntu 22.04+, and derivatives (x86-64) |
+| `Asdfy-<version>-1.x86_64.rpm` | Fedora, openSUSE, and other RPM distributions (x86-64) |
+| `Asdfy_<version>_amd64.AppImage` | Any x86-64 Linux distribution, no installation |
 | `Asdfy_<version>_x64-setup.exe` | Windows 10 and 11, x86-64 |
 | `Asdfy_<version>_universal.dmg` | macOS 10.15 or later, Intel and Apple Silicon |
 | `SHA256SUMS` | Checksums for the files above |
@@ -30,31 +32,95 @@ The packages are **not code-signed**, so each operating system warns on first
 launch. Download only from this repository's Releases page and, if you like,
 check the file against `SHA256SUMS` (`sha256sum -c SHA256SUMS --ignore-missing`).
 
-### Linux (AppImage)
+### Linux
+
+Pick one package; all three keep progress in the same folder, so you can switch
+between them without losing anything.
+
+- **`.deb` or `.rpm`** if your distribution supports one: Asdfy is added to your
+  application menu, uses your system's WebKitGTK, and runs natively on Wayland.
+  These packages need WebKitGTK 4.1 (`libwebkit2gtk-4.1` / `webkit2gtk4.1`),
+  which Ubuntu 22.04+, Debian 12+, and current Fedora and openSUSE releases provide;
+  your package manager installs it.
+- **AppImage** on any other distribution, or to try Asdfy without installing. It
+  bundles its own WebKitGTK, so it is larger.
+
+The Linux packages are not GPG-signed and are not in any repository, so your
+package manager will not update them; install a newer release the same way.
+
+#### Debian and Ubuntu (`.deb`)
+
+```bash
+sudo apt install ./Asdfy_<version>_amd64.deb   # install or update
+sudo apt remove asdfy                          # uninstall
+```
+
+The leading `./` matters: without it, `apt` looks for a package in its repositories.
+
+#### Fedora and openSUSE (`.rpm`)
+
+```bash
+sudo dnf install ./Asdfy-<version>-1.x86_64.rpm   # Fedora: install or update
+sudo dnf remove asdfy                             # Fedora: uninstall
+
+sudo zypper install --allow-unsigned-rpm ./Asdfy-<version>-1.x86_64.rpm   # openSUSE
+sudo zypper remove asdfy
+```
+
+`zypper` refuses unsigned local packages unless you pass `--allow-unsigned-rpm`.
+
+#### AppImage
 
 ```bash
 chmod +x Asdfy_<version>_amd64.AppImage
 ./Asdfy_<version>_amd64.AppImage
 ```
 
-AppImages need FUSE 2 (`libfuse2`, called `fuse2` on Arch and `libfuse2t64` on
-Ubuntu 24.04). Without it, run with `--appimage-extract-and-run`. To add Asdfy to
-your application menu, use a tool such as Gear Lever or AppImageLauncher, or move
-the file somewhere permanent and create a desktop entry. To update, replace the
-file with the newer AppImage.
+To add the AppImage to your application menu, use a tool such as Gear Lever or
+AppImageLauncher, or move the file somewhere permanent and create a desktop entry.
+To update, replace the file with the newer AppImage.
 
-WebKitGTK's DMA-BUF renderer can close Wayland windows on some NVIDIA systems, so
-Asdfy turns it off by default on Linux. To opt back in for diagnosis, start the app
-with `WEBKIT_DISABLE_DMABUF_RENDERER=0`.
+**FUSE.** An AppImage mounts itself as a read-only filesystem when it starts, using
+FUSE. Asdfy's AppImage uses the current static AppImage runtime, which carries its
+own copy of the FUSE library, so it does **not** need FUSE 2 (`libfuse2`,
+`libfuse2t64`, or `fuse2`) — the package that older AppImages ask for. It needs only:
 
-**If the window looks wrongly scaled on Wayland.** The AppImage always runs through
-XWayland: the GTK start-up hook that Tauri's AppImage bundler adds sets
+- FUSE support in the kernel (`/dev/fuse`), which desktop distributions enable; and
+- the `fusermount3` (or older `fusermount`) program, from the `fuse3` package,
+  which most desktops install by default.
+
+| Message when starting the AppImage | What to do |
+| --- | --- |
+| `Error: No suitable fusermount binary found on the $PATH` | Install `fuse3`: `sudo apt install fuse3`, `sudo dnf install fuse3`, `sudo pacman -S fuse3`, or `sudo zypper install fuse3`. |
+| `fuse: device not found, try 'modprobe fuse' first` | Load the module with `sudo modprobe fuse`. Containers, WSL, and some locked-down systems cannot use FUSE at all; use the fallback below. |
+| `Cannot mount AppImage, please check your FUSE setup.` | Check the two requirements above, or use the fallback below. |
+
+On Ubuntu, do not install the old `fuse` package to fix this: it replaces `fuse3`
+and can remove desktop packages along with it. Asdfy does not need it.
+
+Without FUSE, the AppImage can still run by unpacking itself into a temporary
+folder first (slower to start, nothing is installed):
+
+```bash
+./Asdfy_<version>_amd64.AppImage --appimage-extract-and-run
+```
+
+Setting `APPIMAGE_EXTRACT_AND_RUN=1` does the same. Alternatively, use the `.deb`
+or `.rpm`, which do not use FUSE at all.
+
+**If the AppImage window looks wrongly scaled on Wayland.** The AppImage always runs
+through XWayland: the GTK start-up hook that Tauri's AppImage bundler adds sets
 `GDK_BACKEND=x11` to avoid a known Wayland crash
 ([tauri#8541](https://github.com/tauri-apps/tauri/issues/8541)). Under XWayland, GTK
 applies `GDK_SCALE`, so a session that exports `GDK_SCALE=2` for a 1× monitor (some
 Hyprland setups do) draws Asdfy at double size. Start it with the scale that matches
-your display, for example `GDK_SCALE=1 ./Asdfy_<version>_amd64.AppImage`, or correct
-`GDK_SCALE` in your session settings.
+your display, for example `GDK_SCALE=1 ./Asdfy_<version>_amd64.AppImage`, correct
+`GDK_SCALE` in your session settings, or use the `.deb` or `.rpm`, which run natively
+on Wayland and are not affected.
+
+**NVIDIA.** WebKitGTK's DMA-BUF renderer can close Wayland windows on some NVIDIA
+systems, so every Linux package of Asdfy turns it off by default. To opt back in for
+diagnosis, start the app with `WEBKIT_DISABLE_DMABUF_RENDERER=0`.
 
 ### Windows
 
@@ -145,7 +211,7 @@ separate progress; there is no cloud synchronization or online login.
 
 | Platform | Data folder |
 | --- | --- |
-| Linux | `~/.local/share/io.github.exolithelabs.asdfy/` (or `$XDG_DATA_HOME/io.github.exolithelabs.asdfy/`) |
+| Linux (all three packages) | `~/.local/share/io.github.exolithelabs.asdfy/` (or `$XDG_DATA_HOME/io.github.exolithelabs.asdfy/`) |
 | Windows | `%APPDATA%\io.github.exolithelabs.asdfy\` |
 | macOS | `~/Library/Application Support/io.github.exolithelabs.asdfy/` |
 
@@ -178,7 +244,7 @@ import, or change TypeDH data, which stays in
 | Local backend | Rust Tauri commands, compiled into the desktop app |
 | Data storage | SQLite through rusqlite, with SQLite bundled at compile time |
 | Frontend/backend communication | Tauri IPC with typed command payloads |
-| Packages | Tauri bundler: AppImage, NSIS installer, and DMG |
+| Packages | Tauri bundler: AppImage, .deb, .rpm, NSIS installer, and DMG |
 
 The frontend invokes `get_lessons`, `get_summary`, `get_progress`,
 `save_progress`, `data_location`, and the `lighting_*` commands directly through Tauri. The lesson catalog
@@ -235,16 +301,16 @@ Rust, and Tauri versions; the private frontend package has its own version.
 ## GitHub builds and releases
 
 The normal workflow is to edit code locally, commit, and push. GitHub-hosted
-runners test the code and build each platform's package on its own operating
-system: the AppImage on Ubuntu 22.04 (its older glibc lets the AppImage run on
-more distributions), the Windows installer on Windows, and a universal macOS
-disk image on macOS.
+runners test the code and build each platform's packages on its own operating
+system: the AppImage, `.deb`, and `.rpm` on Ubuntu 22.04 (its older glibc lets
+them run on more distributions), the Windows installer on Windows, and a universal
+macOS disk image on macOS.
 
 | Trigger | Result |
 | --- | --- |
-| Pull request | Tests and all three packages; Actions artifacts |
-| Push to `master` | Tests and all three packages; Actions artifacts |
-| Push a `v*` tag | All three packages, followed by a published GitHub prerelease with downloads |
+| Pull request | Tests and all packages; Actions artifacts |
+| Push to `master` | Tests and all packages; Actions artifacts |
+| Push a `v*` tag | All packages, followed by a published GitHub prerelease with downloads |
 | Manual **Run workflow** | Build for the selected ref; publication only when the ref is a `v*` tag |
 
 Actions artifacts are retained for 14 days. Release assets are attached separately
@@ -263,14 +329,15 @@ git tag v0.2.0
 git push origin master v0.2.0
 ```
 
-After all three package jobs pass, GitHub Actions attaches the packages and
+After all three platform jobs pass, GitHub Actions attaches the five packages and
 publishes the prerelease automatically. The release job uses GitHub's automatic token.
 The workflow checks that version files and tags agree, runs frontend
 regression tests and JavaScript dependency audits, and tests the native Rust
 backend's validation, history pagination, persistence, and statistics on Linux,
 Windows, and macOS. Browser tests cover completing, repeating, navigating,
-restarting, custom practice, and persisted settings; a startup check verifies the
-built AppImage stays open and initializes storage. Actions are pinned to commit
+restarting, custom practice, persisted settings, and the keyboard backlight; startup
+checks verify that the built AppImage and the installed `.deb` stay open and
+initialize storage, and the `.rpm` is checked for a valid header and file list. Actions are pinned to commit
 IDs. Published releases cannot be overwritten by a rerun; use a new version tag.
 Releases include `SHA256SUMS` for the packages. See
 [docs/RELEASING.md](docs/RELEASING.md) for details.
@@ -297,8 +364,8 @@ store progress in a `development/` subdirectory of the data folder, separate
 from installed release builds.
 
 To build a package for your own platform instead, run
-`npm run tauri build -- --bundles appimage` (Linux), `--bundles nsis` (Windows),
-or `--bundles dmg` (macOS). Output is written under `src-tauri/target/release/bundle/`.
+`npm run tauri build -- --bundles appimage,deb,rpm` (Linux), `--bundles nsis`
+(Windows), or `--bundles dmg` (macOS). Output is written under `src-tauri/target/release/bundle/`.
 
 To change the app icon, edit `src-tauri/icons/app-icon.svg`, run
 `npx tauri icon src-tauri/icons/app-icon.svg -o src-tauri/icons`, and delete the

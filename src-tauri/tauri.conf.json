@@ -27,7 +27,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["appimage", "nsis", "dmg"],
+    "targets": ["appimage", "deb", "rpm", "nsis", "dmg"],
     "category": "Education",
     "shortDescription": "Touch-typing tutor",
     "longDescription": "Asdfy is a focused desktop touch-typing tutor for the QWERTY layout, with a staged course, smart practice on your weakest keys, speed tests, and private local statistics.",
