@@ -65,6 +65,41 @@ the old one; the data folder is named after the application ID
 `io.github.exolithelabs.asdfy`, which `scripts/check-release.mjs` keeps fixed so
 progress survives upgrades.
 
+## Changing the database schema
+
+The schema lives in numbered migrations in `src-tauri/src/storage/migrations/`,
+listed in order in `MIGRATIONS` in `src-tauri/src/storage/repository.rs`. SQLite's
+`user_version` records how many migrations a database has applied.
+
+On open, Asdfy:
+
+1. refuses, without writing anything, a database whose version is higher than the
+   number of migrations it knows (written by a newer release), or a non-empty file
+   with version 0 (not an Asdfy database);
+2. for an existing, older database, writes a full copy with `VACUUM INTO` to
+   `progress.v<version>-backup-<unix time>.sqlite3` and stops if that fails;
+3. applies every pending migration in one transaction with foreign keys off,
+   setting `user_version` after each, then runs `PRAGMA foreign_key_check` and
+   commits only if it is clean; any error rolls everything back;
+4. turns foreign keys on and refreshes the lesson catalog.
+
+To change the schema:
+
+- Add `NNNN_short_name.sql` with the next number and append it to `MIGRATIONS`.
+  Never edit, reorder, or delete a migration that has shipped in a release, even a
+  prerelease: installed databases have already applied it.
+- Write plain SQL. Do not use `BEGIN`, `COMMIT`, `ROLLBACK`, `PRAGMA user_version`,
+  or `PRAGMA foreign_keys`; the runner owns those, and a test rejects them.
+- `ALTER TABLE … ADD COLUMN` covers simple additions. For anything else, such as
+  changing constraints or column types, use SQLite's table rebuild: create
+  `<table>_new`, copy the rows, drop the old table, rename the new one, and recreate
+  its indexes. Foreign keys are off during migrations, so this works even for tables
+  other tables reference; the foreign key check then catches rows the migration orphaned.
+- Keep the Rust structs, queries, and frontend models in step with the new columns.
+- Add a test in `src-tauri/src/storage/tests.rs` that builds a database at the
+  previous version with `Repository::open_with(directory, &MIGRATIONS[..n])`,
+  saves representative data, opens it with all migrations, and checks the data.
+
 ## Creating a release candidate
 
 Ensure the version matches in `package.json`, `src-tauri/Cargo.toml`,

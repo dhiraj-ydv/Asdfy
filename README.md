@@ -225,10 +225,19 @@ To back up progress, fully quit the app, then copy the data folder somewhere
 safe. SQLite may also create `progress.sqlite3-wal` and `progress.sqlite3-shm`
 companion files; do not delete them while the app is running.
 
-Databases in an unknown format, such as one written by a newer release, are
-rejected without being modified. To start fresh, quit the app and move
-`progress.sqlite3` and its `-wal`/`-shm` files out of the data folder, then
-restart. History loads newest first in pages of 100 results.
+**Upgrades.** When a new version of Asdfy changes how progress is stored, it
+upgrades your database the first time it opens it. It first saves a complete copy
+next to it, named `progress.v<old version>-backup-<time>.sqlite3`, then applies
+every change in a single step: if anything goes wrong, the database is left
+exactly as it was, the error is shown, and the copy is still there. Backups are
+never deleted automatically; remove old ones once you are happy with the upgrade.
+To go back to an older Asdfy, quit the app, replace `progress.sqlite3` with the
+matching backup (and delete the `-wal`/`-shm` files), then install that version.
+
+A database written by a newer Asdfy than the one installed, or a file that is not
+an Asdfy database, is refused without being modified. To start fresh, quit the
+app and move `progress.sqlite3` and its `-wal`/`-shm` files out of the data
+folder, then restart. History loads newest first in pages of 100 results.
 
 Asdfy was previously developed as TypeDH, a Colemak-DH tutor distributed as a
 Flatpak. Asdfy uses a new application ID and data folder and does not read,
@@ -280,7 +289,7 @@ src-tauri/src/
   content/          Built-in lesson catalog
   models.rs         Command payloads and validation
   commands.rs       Thin asynchronous IPC handlers
-  storage/          SQLite repository, schema, and persistence tests
+  storage/          SQLite repository, numbered schema migrations, and persistence tests
   lighting/         OpenRGB SDK client for the optional keyboard backlight, with a
                     fake-server test suite
 src-tauri/icons/    App icon source (app-icon.svg) and generated platform icons

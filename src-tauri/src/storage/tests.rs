@@ -1,8 +1,9 @@
 use super::*;
+use super::repository::MIGRATIONS;
 use crate::content::LESSONS;
 use crate::models::{KeyStat, ProgressInput};
 use rusqlite::Connection;
-use std::{collections::HashSet, fs};
+use std::{collections::HashSet, fs, path::Path};
 use tempfile::tempdir;
 
 fn session(mode: &str, lesson_id: Option<i64>, wpm: f64) -> ProgressInput {
@@ -138,11 +139,129 @@ fn payloads_are_strict_and_storage_open_can_be_retried() {
 }
 
 #[test]
-fn unknown_database_formats_are_left_unchanged() {
+fn newer_and_unknown_databases_are_left_unchanged() {
+    for (setup, message) in [
+        ("CREATE TABLE future(x); PRAGMA user_version = 9;", "newer version of Asdfy"),
+        ("CREATE TABLE other(x);", "unknown format"),
+    ] {
+        let directory = tempdir().unwrap();
+        let path = directory.path().join("progress.sqlite3");
+        Connection::open(&path).unwrap().execute_batch(setup).unwrap();
+        let before = fs::read(&path).unwrap();
+        let error = Repository::open(directory.path()).err().unwrap();
+        assert!(error.contains(message), "{error}");
+        assert_eq!(fs::read(&path).unwrap(), before);
+        assert!(backups(directory.path()).is_empty());
+    }
+}
+
+/// Migration 2 as a future release might write it: rebuild `lessons`, which `results`
+/// references, following SQLite's table-rebuild procedure.
+const REBUILD_LESSONS: &str = "
+CREATE TABLE lessons_new (
+    id INTEGER PRIMARY KEY,
+    title TEXT NOT NULL,
+    content TEXT NOT NULL,
+    level INTEGER NOT NULL,
+    retired INTEGER NOT NULL DEFAULT 0
+);
+INSERT INTO lessons_new(id, title, content, level) SELECT id, title, content, level FROM lessons;
+DROP TABLE lessons;
+ALTER TABLE lessons_new RENAME TO lessons;
+CREATE TABLE goals (id INTEGER PRIMARY KEY, wpm REAL NOT NULL);
+INSERT INTO goals(wpm) SELECT max(wpm) FROM results;";
+
+fn user_version(directory: &Path) -> i64 {
+    Connection::open(directory.join("progress.sqlite3")).unwrap()
+        .pragma_query_value(None, "user_version", |row| row.get(0)).unwrap()
+}
+
+fn backups(directory: &Path) -> Vec<String> {
+    fs::read_dir(directory).unwrap()
+        .map(|entry| entry.unwrap().file_name().into_string().unwrap())
+        .filter(|name| name.starts_with("progress.v"))
+        .collect()
+}
+
+/// Creates a version 1 database holding one lesson result and one custom result.
+fn version_1(directory: &Path) {
+    let mut repository = Repository::open_with(directory, &MIGRATIONS[..1]).unwrap();
+    repository.save(lesson(40.0)).unwrap();
+    repository.save(session("custom", None, 55.0)).unwrap();
+}
+
+#[test]
+fn migrations_are_well_formed() {
+    assert!(!MIGRATIONS.is_empty());
+    for sql in MIGRATIONS {
+        let upper = sql.to_uppercase();
+        // The runner owns the transaction and the version number.
+        for forbidden in ["BEGIN", "COMMIT", "ROLLBACK", "USER_VERSION", "FOREIGN_KEYS"] {
+            assert!(!upper.contains(forbidden), "a migration must not contain {forbidden}");
+        }
+    }
+}
+
+#[test]
+fn new_databases_get_every_migration_without_a_backup() {
     let directory = tempdir().unwrap();
-    let path = directory.path().join("progress.sqlite3");
-    Connection::open(&path).unwrap().execute_batch("CREATE TABLE future(x); PRAGMA user_version = 9;").unwrap();
-    let before = fs::read(&path).unwrap();
-    assert!(Repository::open(directory.path()).is_err());
-    assert_eq!(fs::read(&path).unwrap(), before);
+    Repository::open(directory.path()).unwrap();
+    assert_eq!(user_version(directory.path()), MIGRATIONS.len() as i64);
+    Repository::open(directory.path()).unwrap();
+    assert!(backups(directory.path()).is_empty());
+}
+
+#[test]
+fn older_databases_are_backed_up_then_upgraded_once() {
+    let directory = tempdir().unwrap();
+    version_1(directory.path());
+    let upgraded = [MIGRATIONS[0], REBUILD_LESSONS];
+    let mut repository = Repository::open_with(directory.path(), &upgraded).unwrap();
+    assert_eq!(user_version(directory.path()), 2);
+    let history = repository.history("User1", 100, None).unwrap();
+    assert_eq!(history.len(), 2);
+    assert_eq!(history[1].lesson_title.as_deref(), Some(LESSONS[0].title));
+    repository.save(lesson(60.0)).unwrap();
+    assert_eq!(repository.summary("User1").unwrap().sessions, 3);
+    drop(repository);
+
+    let goal: f64 = Connection::open(directory.path().join("progress.sqlite3")).unwrap()
+        .query_row("SELECT wpm FROM goals", [], |row| row.get(0)).unwrap();
+    assert_eq!(goal, 55.0);
+    let saved = backups(directory.path());
+    assert_eq!(saved.len(), 1);
+    assert!(saved[0].starts_with("progress.v1-backup-"));
+    let backup = Connection::open(directory.path().join(&saved[0])).unwrap();
+    let version: i64 = backup.pragma_query_value(None, "user_version", |row| row.get(0)).unwrap();
+    let rows: i64 = backup.query_row("SELECT count(*) FROM results", [], |row| row.get(0)).unwrap();
+    assert_eq!((version, rows), (1, 2));
+
+    Repository::open_with(directory.path(), &upgraded).unwrap();
+    assert_eq!(backups(directory.path()).len(), 1);
+}
+
+#[test]
+fn failed_or_unsafe_upgrades_change_nothing_and_can_be_retried() {
+    let orphaning = format!("DELETE FROM lessons WHERE id = {};", LESSONS[0].id);
+    for (broken, reason) in [
+        ("CREATE TABLE half_done(x); INSERT INTO missing VALUES (1);", "invalid SQL"),
+        (orphaning.as_str(), "orphaned results"),
+    ] {
+        let directory = tempdir().unwrap();
+        version_1(directory.path());
+        let error = Repository::open_with(directory.path(), &[MIGRATIONS[0], broken]).err().unwrap();
+        assert!(error.contains("left unchanged"), "{reason}: {error}");
+        assert!(error.contains("progress.v1-backup-"), "{reason}: {error}");
+        assert_eq!(user_version(directory.path()), 1, "{reason}");
+        let unchanged = Repository::open_with(directory.path(), &MIGRATIONS[..1]).unwrap();
+        assert_eq!(unchanged.history("User1", 100, None).unwrap().len(), 2, "{reason}");
+        let tables: i64 = Connection::open(directory.path().join("progress.sqlite3")).unwrap()
+            .query_row("SELECT count(*) FROM sqlite_master WHERE name = 'half_done'", [], |row| row.get(0)).unwrap();
+        assert_eq!(tables, 0, "{reason}");
+        drop(unchanged);
+        // A corrected release upgrades the same database; each attempt keeps its own backup.
+        Repository::open_with(directory.path(), &[MIGRATIONS[0], REBUILD_LESSONS]).unwrap();
+        assert_eq!(user_version(directory.path()), 2, "{reason}");
+        assert_eq!(backups(directory.path()).len(), 2, "{reason}");
+    }
 }

@@ -1,4 +1,4 @@
-use std::{fs, path::Path, time::Duration};
+use std::{fs, path::{Path, PathBuf}, time::{Duration, SystemTime, UNIX_EPOCH}};
 use rusqlite::{params, Connection, Row};
 
 use crate::content::LESSONS;
@@ -7,7 +7,12 @@ use crate::models::{
 };
 
 const DATABASE_NAME: &str = "progress.sqlite3";
-const SCHEMA_VERSION: i32 = 1;
+
+/// Ordered schema migrations. A database's `user_version` is the number it has applied.
+/// Never edit, remove, or reorder a released migration; add the next numbered file instead.
+pub(crate) const MIGRATIONS: &[&str] = &[
+    include_str!("migrations/0001_initial.sql"),
+];
 
 fn storage_error(error: impl std::fmt::Display) -> String {
     eprintln!("Asdfy storage: {error}");
@@ -26,10 +31,48 @@ fn secure(_path: &Path, _mode: u32) -> Result<()> {
     Ok(())
 }
 
+/// Copies a database that is about to be migrated, so the previous version can be restored by hand.
+fn backup(connection: &Connection, directory: &Path, version: i64) -> Result<PathBuf> {
+    let stamp = SystemTime::now().duration_since(UNIX_EPOCH).map_err(storage_error)?.as_secs();
+    let path = (1..100)
+        .map(|attempt| match attempt {
+            1 => directory.join(format!("progress.v{version}-backup-{stamp}.sqlite3")),
+            _ => directory.join(format!("progress.v{version}-backup-{stamp}-{attempt}.sqlite3")),
+        })
+        .find(|path| !path.exists())
+        .ok_or("Too many database backups were made at once. Retry in a moment.")?;
+    let target = path.to_str().ok_or("The app-data path is not valid UTF-8.")?;
+    connection.execute("VACUUM INTO ?1", [target]).map_err(storage_error)?;
+    secure(&path, 0o600)?;
+    Ok(path)
+}
+
+/// Applies `migrations[from..]` in one transaction. Foreign keys are off so migrations can
+/// rebuild tables the way SQLite documents; they are checked before anything is committed.
+fn migrate(connection: &mut Connection, migrations: &[&str], from: i64) -> std::result::Result<(), String> {
+    connection.execute_batch("PRAGMA foreign_keys=OFF;").map_err(|error| error.to_string())?;
+    let transaction = connection.transaction().map_err(|error| error.to_string())?;
+    for (index, sql) in migrations.iter().enumerate().skip(from as usize) {
+        let step = index + 1;
+        transaction.execute_batch(sql).map_err(|error| format!("migration {step}: {error}"))?;
+        transaction.pragma_update(None, "user_version", step as i64).map_err(|error| format!("migration {step}: {error}"))?;
+    }
+    let broken = transaction.prepare("PRAGMA foreign_key_check").and_then(|mut check| check.exists([]))
+        .map_err(|error| error.to_string())?;
+    if broken {
+        return Err("migrations left rows that point at missing records".into());
+    }
+    transaction.commit().map_err(|error| error.to_string())
+}
+
 pub struct Repository(Connection);
 
 impl Repository {
     pub fn open(directory: &Path) -> Result<Self> {
+        Self::open_with(directory, MIGRATIONS)
+    }
+
+    pub(crate) fn open_with(directory: &Path, migrations: &[&str]) -> Result<Self> {
         if !directory.is_absolute() { return Err("An absolute app-data directory is required.".into()); }
         fs::create_dir_all(directory).map_err(storage_error)?;
         secure(directory, 0o700)?;
@@ -38,15 +81,32 @@ impl Repository {
         let mut connection = Connection::open(path.clone()).map_err(storage_error)?;
         secure(&path, 0o600)?;
         connection.busy_timeout(Duration::from_secs(5)).map_err(storage_error)?;
-        let version: i32 = connection.pragma_query_value(None, "user_version", |row| row.get(0)).map_err(storage_error)?;
+        let version: i64 = connection.pragma_query_value(None, "user_version", |row| row.get(0)).map_err(storage_error)?;
         let tables: i64 = connection.query_row("SELECT count(*) FROM sqlite_master", [], |row| row.get(0)).map_err(storage_error)?;
-        // Only an empty file or the current format is opened; anything else is left untouched.
-        if version != SCHEMA_VERSION && !(version == 0 && tables == 0) {
-            return Err("This progress database has an unknown format and was left unchanged. Install the newest Asdfy version.".into());
+        let current = migrations.len() as i64;
+        // Databases this version cannot understand are refused before anything is written.
+        if version > current {
+            return Err("This progress database was created by a newer version of Asdfy and was left unchanged. Install the newest Asdfy version.".into());
         }
-        connection.execute_batch("PRAGMA foreign_keys=ON; PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;").map_err(storage_error)?;
+        if version < 0 || (version == 0 && tables > 0) {
+            return Err("This progress database has an unknown format and was left unchanged.".into());
+        }
+        connection.execute_batch("PRAGMA journal_mode=WAL; PRAGMA synchronous=FULL;").map_err(storage_error)?;
+        if version < current {
+            // A new, empty database has nothing to lose; an existing one is copied first.
+            let saved = if version > 0 { Some(backup(&connection, directory, version)?) } else { None };
+            migrate(&mut connection, migrations, version).map_err(|error| {
+                eprintln!("Asdfy storage: upgrade from version {version} failed: {error}");
+                match &saved {
+                    Some(path) => format!(
+                        "Asdfy could not upgrade your progress database, so it was left unchanged. A copy was also saved as {}.",
+                        path.display()),
+                    None => "Asdfy could not create its progress database. Check free disk space and retry.".to_string(),
+                }
+            })?;
+        }
+        connection.execute_batch("PRAGMA foreign_keys=ON;").map_err(storage_error)?;
         let transaction = connection.transaction().map_err(storage_error)?;
-        transaction.execute_batch(include_str!("schema.sql")).map_err(storage_error)?;
         for (index, lesson) in LESSONS.iter().enumerate() {
             transaction.execute(
                 "INSERT INTO lessons(id,title,content,level) VALUES (?1,?2,?3,?4)

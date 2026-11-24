@@ -1,11 +1,13 @@
-CREATE TABLE IF NOT EXISTS lessons (
+-- Migration 1: the first Asdfy schema. Released migrations are never edited;
+-- schema changes go in a new, higher-numbered file (see docs/RELEASING.md).
+CREATE TABLE lessons (
     id INTEGER PRIMARY KEY,
     title TEXT NOT NULL,
     content TEXT NOT NULL,
     level INTEGER NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS results (
+CREATE TABLE results (
     id INTEGER PRIMARY KEY,
     username TEXT NOT NULL CHECK(length(username) BETWEEN 1 AND 80),
     mode TEXT NOT NULL CHECK(mode IN ('lesson', 'adaptive', 'test', 'custom')),
@@ -20,9 +22,9 @@ CREATE TABLE IF NOT EXISTS results (
     CHECK((mode = 'lesson') = (lesson_id IS NOT NULL))
 );
 
-CREATE INDEX IF NOT EXISTS results_by_user ON results(username, id DESC);
+CREATE INDEX results_by_user ON results(username, id DESC);
 
-CREATE TABLE IF NOT EXISTS key_stats (
+CREATE TABLE key_stats (
     username TEXT NOT NULL CHECK(length(username) BETWEEN 1 AND 80),
     symbol TEXT NOT NULL,
     hits INTEGER NOT NULL DEFAULT 0 CHECK(hits >= 0),
@@ -30,5 +32,3 @@ CREATE TABLE IF NOT EXISTS key_stats (
     time_ms INTEGER NOT NULL DEFAULT 0 CHECK(time_ms >= 0),
     PRIMARY KEY(username, symbol)
 ) WITHOUT ROWID;
-
-PRAGMA user_version = 1;
