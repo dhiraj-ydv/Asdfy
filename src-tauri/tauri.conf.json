@@ -33,7 +33,7 @@
     "longDescription": "Asdfy is a focused desktop touch-typing tutor for the QWERTY layout, with a staged course, smart practice on your weakest keys, speed tests, and private local statistics.",
     "copyright": "Copyright 2026 Exolithe Labs",
     "publisher": "Exolithe Labs",
-    "license": "Elastic-2.0",
+    "license": "Apache-2.0",
     "icon": [
       "icons/32x32.png",
       "icons/64x64.png",

@@ -382,5 +382,5 @@ privately. Do not attach your personal database to a public issue.
 
 ## License
 
-Licensed under the [Elastic License 2.0](LICENSE). See [NOTICE](NOTICE) for
+Licensed under the [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for
 attributions.
