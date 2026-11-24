@@ -41,6 +41,9 @@ test.beforeEach(async ({ page }) => {
             }
             case 'app_version': return '0.1.2';
             case 'data_location': return '/home/user/.local/share/io.github.exolithelabs.asdfy';
+            case 'lighting_connect': return { device: 'Test Keyboard', keys: 30 };
+            case 'lighting_highlight': Object.assign(window, { lit: args.keys }); return;
+            case 'lighting_disconnect': return;
             default: throw new Error(`Unexpected command: ${command}`);
           }
         },
@@ -109,4 +112,17 @@ test('settings persist across reloads', async ({ page }) => {
   await page.getByRole('button', { name: 'Start lesson' }).click();
   await expect(typingInput(page)).toBeFocused();
   await expect(page.locator('.keyboard')).toHaveCount(0);
+});
+
+test('the physical keyboard backlight follows the next key when enabled', async ({ page }) => {
+  const litKey = () => page.evaluate(() => (window as unknown as { lit?: { key: string }[] }).lit?.[0]?.key ?? null);
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('switch', { name: /Light the next key/ }).click();
+  await expect(page.getByText('Connected to Test Keyboard (30 keys).')).toBeVisible();
+  await page.getByRole('button', { name: 'Learn', exact: true }).click();
+  await page.getByRole('button', { name: 'Start lesson' }).click();
+  await expect(typingInput(page)).toBeFocused();
+  await expect.poll(litKey).toBe('a');
+  await page.keyboard.type('a');
+  await expect.poll(litKey).toBe('s');
 });

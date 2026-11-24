@@ -6,6 +6,7 @@ import { physicalKey } from '../../domain/keyboard';
 import { formatDuration } from '../../domain/stats';
 import { useExercise } from '../../composables/useExercise';
 import { settings } from '../../services/settings';
+import { showKey } from '../../services/lighting';
 import Icon from '../../shell/Icon.vue';
 import TypingText from './TypingText.vue';
 import KeyboardGuide from './KeyboardGuide.vue';
@@ -47,12 +48,15 @@ function keydown(event: KeyboardEvent) {
 }
 function release() { pressed.value = ''; }
 watch(() => props.enabled, release);
+// The physical keyboard follows the on-screen guide, and goes dark between exercises.
+watch([nextCharacter, () => props.enabled], ([character, enabled]) => showKey(enabled ? character : ''), { immediate: true });
 onMounted(() => {
   window.addEventListener('keydown', keydown);
   window.addEventListener('keyup', release);
   window.addEventListener('blur', release);
 });
 onUnmounted(() => {
+  showKey('');
   window.removeEventListener('keydown', keydown);
   window.removeEventListener('keyup', release);
   window.removeEventListener('blur', release);

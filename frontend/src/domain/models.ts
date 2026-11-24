@@ -90,6 +90,17 @@ export interface Summary {
   keys: KeyStat[];
 }
 
+/** A physical key to light and its RGB colour. */
+export interface LitKey {
+  key: string;
+  color: [number, number, number];
+}
+
+export interface LightingStatus {
+  device: string;
+  keys: number;
+}
+
 export type LetterScope = 'learned' | 'all';
 
 export interface AdaptiveOptions {

@@ -10,9 +10,13 @@ export interface Settings {
   stopOnError: boolean;
   showKeyboard: boolean;
   showHands: boolean;
+  /** Light the next key on a per-key RGB keyboard through OpenRGB. */
+  keyboardLighting: boolean;
 }
 
-const DEFAULTS: Settings = { theme: 'system', textSize: 'medium', stopOnError: false, showKeyboard: true, showHands: true };
+const DEFAULTS: Settings = {
+  theme: 'system', textSize: 'medium', stopOnError: false, showKeyboard: true, showHands: true, keyboardLighting: false,
+};
 const THEMES: Theme[] = ['system', 'dark', 'light'];
 const SIZES: TextSize[] = ['small', 'medium', 'large'];
 
@@ -20,7 +24,7 @@ const SIZES: TextSize[] = ['small', 'medium', 'large'];
 function restore(): Settings {
   let saved: Partial<Record<keyof Settings, unknown>> = {};
   try { saved = JSON.parse(preferences.read('settings') ?? '{}') ?? {}; } catch { /* Use defaults. */ }
-  const flag = (key: 'stopOnError' | 'showKeyboard' | 'showHands') =>
+  const flag = (key: 'stopOnError' | 'showKeyboard' | 'showHands' | 'keyboardLighting') =>
     typeof saved[key] === 'boolean' ? saved[key] as boolean : DEFAULTS[key];
   return {
     theme: THEMES.find(theme => theme === saved.theme) ?? DEFAULTS.theme,
@@ -28,6 +32,7 @@ function restore(): Settings {
     stopOnError: flag('stopOnError'),
     showKeyboard: flag('showKeyboard'),
     showHands: flag('showHands'),
+    keyboardLighting: flag('keyboardLighting'),
   };
 }
 

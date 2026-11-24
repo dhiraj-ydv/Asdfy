@@ -47,6 +47,15 @@ WebKitGTK's DMA-BUF renderer can close Wayland windows on some NVIDIA systems, s
 Asdfy turns it off by default on Linux. To opt back in for diagnosis, start the app
 with `WEBKIT_DISABLE_DMABUF_RENDERER=0`.
 
+**If the window looks wrongly scaled on Wayland.** The AppImage always runs through
+XWayland: the GTK start-up hook that Tauri's AppImage bundler adds sets
+`GDK_BACKEND=x11` to avoid a known Wayland crash
+([tauri#8541](https://github.com/tauri-apps/tauri/issues/8541)). Under XWayland, GTK
+applies `GDK_SCALE`, so a session that exports `GDK_SCALE=2` for a 1× monitor (some
+Hyprland setups do) draws Asdfy at double size. Start it with the scale that matches
+your display, for example `GDK_SCALE=1 ./Asdfy_<version>_amd64.AppImage`, or correct
+`GDK_SCALE` in your session settings.
+
 ### Windows
 
 Run `Asdfy_<version>_x64-setup.exe`. It installs for the current user without
@@ -100,7 +109,25 @@ the current one as described for your platform. Your lessons and progress are ke
    heatmap, your weakest keys, an activity calendar, and session history.
 8. **Settings** offers system, light, or dark theme; three typing text sizes;
    stop on errors (the cursor waits for the correct key); toggles for the
-   keyboard and finger guide; and where your progress is stored.
+   keyboard and finger guide; keyboard backlight; and where your progress is stored.
+
+### Keyboard backlight (optional)
+
+On a keyboard with per-key RGB lighting, Asdfy can light the next key on the
+physical keyboard too, in the same finger colour as the on-screen guide, plus the
+Shift key for capitals and symbols. All other keys stay dimly lit.
+
+1. Install [OpenRGB](https://openrgb.org) and check that it controls your keyboard
+   key by key.
+2. In OpenRGB, open **SDK Server** and start the server on the default port, 6742.
+3. In Asdfy, open **Settings → Keyboard backlight** and switch on **Light the next
+   key on my keyboard**. The status line names the keyboard it found.
+
+Asdfy picks the first keyboard OpenRGB reports with a lit key for every letter. When
+you switch the setting off or quit, the keyboard returns to the colours and effect it
+had before. Asdfy talks to OpenRGB only, at `127.0.0.1`; it never contacts another
+computer. Keyboards that OpenRGB cannot drive key by key, including many generic
+SINO WEALTH boards (USB vendor `258a`), cannot use this feature.
 
 | Shortcut | Action |
 | --- | --- |
@@ -154,13 +181,17 @@ import, or change TypeDH data, which stays in
 | Packages | Tauri bundler: AppImage, NSIS installer, and DMG |
 
 The frontend invokes `get_lessons`, `get_summary`, `get_progress`,
-`save_progress`, and `data_location` directly through Tauri. The lesson catalog
+`save_progress`, `data_location`, and the `lighting_*` commands directly through Tauri. The lesson catalog
 is compiled into the binary, so lessons load even when storage is unavailable;
 practice text for generated lessons, smart practice, and speed tests is built in
 the frontend from a bundled word list. Rust serializes database access on a
 background worker and validates the command payloads; the webview cannot submit
-SQL or choose database paths. The app makes no HTTP requests. There is no in-app
-updater, CORS configuration, API tokens, or shell plugin.
+SQL or choose database paths. The app makes no HTTP requests. Its only network
+connection is the optional keyboard backlight: when switched on, Rust opens a TCP
+connection to the OpenRGB SDK server at `127.0.0.1` and speaks OpenRGB's binary
+protocol with an in-house client written from OpenRGB's protocol documentation; the
+webview chooses neither host nor device. There is no in-app updater, CORS
+configuration, API tokens, or shell plugin.
 SQLite retains WAL mode, full synchronization, foreign keys, and a write timeout.
 Failed database opens can be retried from the UI. Writes are never retried
 automatically, and loading/save failures are shown in the interface.
@@ -184,6 +215,8 @@ src-tauri/src/
   models.rs         Command payloads and validation
   commands.rs       Thin asynchronous IPC handlers
   storage/          SQLite repository, schema, and persistence tests
+  lighting/         OpenRGB SDK client for the optional keyboard backlight, with a
+                    fake-server test suite
 src-tauri/icons/    App icon source (app-icon.svg) and generated platform icons
 scripts/            Release version checks
 .github/            Build/release workflow and Dependabot configuration

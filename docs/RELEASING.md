@@ -52,7 +52,8 @@ build step.
 
 ## Updates
 
-There is no in-app updater, and the app makes no HTTP requests. **Settings**
+There is no in-app updater, and the app makes no HTTP requests (the optional
+keyboard backlight connects only to OpenRGB on `127.0.0.1`). **Settings**
 shows the installed version. Users update by installing the newer package over
 the old one; the data folder is named after the application ID
 `io.github.exolithelabs.asdfy`, which `scripts/check-release.mjs` keeps fixed so

@@ -1,9 +1,17 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import { settings } from '../../services/settings';
+import { connectLighting, lighting } from '../../services/lighting';
 import Icon from '../../shell/Icon.vue';
 
 defineProps<{ version: string; error: string; dataLocation: string }>();
 const emit = defineEmits<{ control: [action: 'restart' | 'close'] }>();
+const lightingText = computed(() => ({
+  off: '',
+  connecting: 'Connecting to OpenRGB…',
+  on: `Connected to ${lighting.device} (${lighting.keys} keys).`,
+  error: lighting.message,
+})[lighting.state]);
 </script>
 
 <template>
@@ -53,6 +61,19 @@ const emit = defineEmits<{ control: [action: 'restart' | 'close'] }>();
     </div>
 
     <div class="card section">
+      <h2>Keyboard backlight</h2>
+      <label class="switch">
+        <input v-model="settings.keyboardLighting" type="checkbox" role="switch" />
+        <span class="switch-track"></span>
+        <span class="switch-text">Light the next key on my keyboard<small>Needs a per-key RGB keyboard that OpenRGB
+          supports, with OpenRGB running and its SDK server on (port 6742). Only this computer is contacted.</small></span>
+      </label>
+      <p v-if="lightingText" class="lighting-status" :class="lighting.state" role="status">{{ lightingText }}</p>
+      <button v-if="settings.keyboardLighting && lighting.state === 'error'" class="btn btn-secondary retry"
+        @click="connectLighting">Try again</button>
+    </div>
+
+    <div class="card section">
       <h2>Keyboard layout</h2>
       <p class="muted">Lessons and the on-screen keyboard use the US QWERTY layout. Asdfy checks the characters
         your keyboard produces and does not change your system layout, so set it to English (US) for the guides to match.</p>
@@ -80,4 +101,8 @@ const emit = defineEmits<{ control: [action: 'restart' | 'close'] }>();
 code { font-size: 0.85em; padding: 1px 5px; border-radius: 4px; background: var(--surface-2); word-break: break-all; }
 .controls { display: flex; gap: 10px; flex-wrap: wrap; }
 .error { color: var(--danger); font-weight: 600; }
+.lighting-status { font-size: 0.9rem; color: var(--muted); }
+.lighting-status.on { color: var(--accent-strong); font-weight: 600; }
+.lighting-status.error { color: var(--danger); }
+.retry { width: fit-content; }
 </style>

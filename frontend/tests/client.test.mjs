@@ -18,6 +18,10 @@ test('desktop boundary sends bounded structured commands', async () => {
   await client.restart();
   await client.version();
   await client.dataLocation();
+  await client.lightingConnect();
+  await client.lightingConnect(7000);
+  await client.lightingHighlight(3, [{ key: 'a', color: [1, 2, 3] }]);
+  await client.lightingDisconnect();
   assert.deepEqual(calls, [
     ['get_lessons', undefined],
     ['get_progress', { username: 'User1', limit: 100, before: null }],
@@ -25,6 +29,8 @@ test('desktop boundary sends bounded structured commands', async () => {
     ['get_summary', { username: 'User1' }],
     ['save_progress', { input }], ['stop_application', undefined],
     ['restart_application', undefined], ['app_version', undefined], ['data_location', undefined],
+    ['lighting_connect', { port: null }], ['lighting_connect', { port: 7000 }],
+    ['lighting_highlight', { frame: 3, keys: [{ key: 'a', color: [1, 2, 3] }] }], ['lighting_disconnect', undefined],
   ]);
 });
 

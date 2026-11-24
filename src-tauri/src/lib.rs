@@ -1,5 +1,6 @@
 mod commands;
 mod content;
+mod lighting;
 mod models;
 mod storage;
 
@@ -15,6 +16,7 @@ pub fn run() {
             }
             // Opening is lazy and retryable; a storage failure never prevents the UI opening.
             app.manage(Arc::new(storage::Storage::new(directory)));
+            app.manage(Arc::new(lighting::Lighting::default()));
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -26,7 +28,16 @@ pub fn run() {
             commands::restart_application,
             commands::app_version,
             commands::data_location,
+            commands::lighting_connect,
+            commands::lighting_highlight,
+            commands::lighting_disconnect,
         ])
-        .run(tauri::generate_context!())
-        .expect("Asdfy could not initialize its desktop window");
+        .build(tauri::generate_context!())
+        .expect("Asdfy could not initialize its desktop window")
+        .run(|app, event| {
+            // Give the keyboard back its previous OpenRGB effect when the app closes.
+            if let tauri::RunEvent::Exit = event {
+                app.state::<Arc<lighting::Lighting>>().disconnect();
+            }
+        });
 }

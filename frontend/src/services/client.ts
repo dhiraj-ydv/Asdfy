@@ -1,4 +1,4 @@
-import type { Lesson, Progress, ProgressInput, Summary } from '../domain/models.ts';
+import type { Lesson, LightingStatus, LitKey, Progress, ProgressInput, Summary } from '../domain/models.ts';
 import { HISTORY_PAGE_SIZE } from '../domain/models.ts';
 
 export type Invoke = <T>(command: string, args?: Record<string, unknown>) => Promise<T>;
@@ -15,6 +15,9 @@ export function createClient(invoke: Invoke) {
     restart: () => invoke<void>('restart_application'),
     version: () => invoke<string>('app_version'),
     dataLocation: () => invoke<string>('data_location'),
+    lightingConnect: (port?: number) => invoke<LightingStatus>('lighting_connect', { port: port ?? null }),
+    lightingHighlight: (frame: number, keys: LitKey[]) => invoke<void>('lighting_highlight', { frame, keys }),
+    lightingDisconnect: () => invoke<void>('lighting_disconnect'),
   };
 }
 

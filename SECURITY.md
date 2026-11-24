@@ -6,9 +6,11 @@ tab. Include reproduction steps, impact, and the affected version.
 
 Only the latest released version is supported with security fixes.
 
-The backend runs inside the Rust/Tauri process and makes no network requests.
-It exposes a small set of typed IPC commands to the local webview, with no HTTP
-listener or shell plugin. Rust validates inputs and uses parameterized SQLite
+The backend runs inside the Rust/Tauri process and makes no internet requests.
+The only network connection is the optional keyboard backlight, off by default,
+which connects to an OpenRGB SDK server on `127.0.0.1` only; the webview cannot
+choose the host. The backend exposes a small set of typed IPC commands to the local
+webview, with no HTTP listener or shell plugin. Rust validates inputs and uses parameterized SQLite
 queries in the OS user-data directory. The database is not encrypted; security
 depends on the OS user account and filesystem permissions (on Linux and macOS the
 data folder and database are restricted to the current user). Unexpected database
