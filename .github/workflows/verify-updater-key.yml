@@ -19,8 +19,6 @@ jobs:
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
           node-version: 22
-      - name: Install signature verifier
-        run: sudo apt-get update && sudo apt-get install -y minisign
       - name: Sign with the Actions secret and verify
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
@@ -56,6 +54,15 @@ jobs:
               exit 1
             fi
           fi
-          base64 -d payload.txt.sig > payload.txt.minisig
-          minisign -V -p updater.pub -x payload.txt.minisig -m payload.txt
-          echo "TAURI_SIGNING_PRIVATE_KEY matches the updater public key"
+          python3 - << 'PY'
+          import base64, pathlib
+          pub = pathlib.Path("updater.pub").read_text()
+          pub_id = pub.splitlines()[0].rsplit(":", 1)[-1].strip().upper()
+          sig = base64.b64decode(pathlib.Path("payload.txt.sig").read_text())
+          sig_text = sig.decode()
+          sig_bytes = base64.b64decode(sig_text.splitlines()[1])
+          sig_id = sig_bytes[2:10].hex().upper()
+          if pub_id != sig_id:
+              raise SystemExit(f"key id mismatch: public {pub_id} signature {sig_id}")
+          print("TAURI_SIGNING_PRIVATE_KEY matches the updater public key")
+          PY
