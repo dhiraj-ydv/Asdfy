@@ -7,13 +7,13 @@ that introduces keys a few at a time, smart practice aimed at your weakest keys,
 timed speed tests, custom text, live keyboard and finger guidance, and detailed
 local statistics. No account or cloud database is required.
 
-[Download a release](https://github.com/exolithelabs/TypeDH/releases) ·
-[View GitHub builds](https://github.com/exolithelabs/TypeDH/actions/workflows/desktop-build.yml) ·
-[Report a bug](https://github.com/exolithelabs/TypeDH/issues)
+[Download a release](https://github.com/exolithelabs/Asdfy/releases) ·
+[View GitHub builds](https://github.com/exolithelabs/Asdfy/actions/workflows/desktop-build.yml) ·
+[Report a bug](https://github.com/exolithelabs/Asdfy/issues)
 
 ## Downloads and installation
 
-Open [GitHub Releases](https://github.com/exolithelabs/TypeDH/releases),
+Open [GitHub Releases](https://github.com/exolithelabs/Asdfy/releases),
 choose a version, and expand **Assets**.
 
 | Download | Platform |
@@ -382,7 +382,7 @@ generated `android`, `ios`, and `Square*`/`StoreLogo` files, which are not used.
 
 ## Support and security
 
-For bugs, open an [issue](https://github.com/exolithelabs/TypeDH/issues)
+For bugs, open an [issue](https://github.com/exolithelabs/Asdfy/issues)
 with your app version, operating system and version, package type, and steps
 to reproduce. For a failed build, include the GitHub Actions run URL.
 
