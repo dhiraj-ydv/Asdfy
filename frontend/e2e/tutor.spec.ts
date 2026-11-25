@@ -28,6 +28,11 @@ test.beforeEach(async ({ page }) => {
     }
     Object.assign(window, {
       __TAURI_INTERNALS__: {
+        // Channels register a callback that the native side streams messages to.
+        transformCallback: (callback: (message: unknown) => void) => {
+          Object.assign(window, { channel: callback });
+          return 1;
+        },
         invoke: async (command: string, args: Record<string, unknown> = {}) => {
           switch (command) {
             case 'get_lessons': return lessons;
@@ -44,6 +49,14 @@ test.beforeEach(async ({ page }) => {
             case 'lighting_connect': return { device: 'Test Keyboard', keys: 30 };
             case 'lighting_highlight': Object.assign(window, { lit: args.keys }); return;
             case 'lighting_disconnect': return;
+            case 'update_check': return { version: '0.2.0', notes: 'Faster drills.', installable: true };
+            case 'update_install': {
+              const send = (window as unknown as { channel: (message: unknown) => void }).channel;
+              send({ index: 0, message: { downloaded: 50, total: 100 } });
+              await new Promise(resolve => setTimeout(resolve, 300));
+              return;
+            }
+            case 'restart_application': Object.assign(window, { restarted: true }); return;
             default: throw new Error(`Unexpected command: ${command}`);
           }
         },
@@ -125,4 +138,16 @@ test('the physical keyboard backlight follows the next key when enabled', async 
   await expect.poll(litKey).toBe('a');
   await page.keyboard.type('a');
   await expect.poll(litKey).toBe('s');
+});
+
+test('an available update is announced and installed in the app', async ({ page }) => {
+  await page.getByRole('button', { name: 'Update to 0.2.0' }).click();
+  await expect(page.getByText('Asdfy version 0.1.2')).toBeVisible();
+  await expect(page.getByText('Asdfy 0.2.0 is available.')).toBeVisible();
+  await expect(page.getByText('Faster drills.')).toBeVisible();
+  await page.getByRole('button', { name: 'Update now' }).click();
+  await expect(page.getByText('Downloading Asdfy 0.2.0… 50%')).toBeVisible();
+  await expect(page.getByText('Asdfy 0.2.0 is installed. Restart to start using it.')).toBeVisible();
+  await page.getByRole('button', { name: 'Restart now' }).click();
+  await expect.poll(() => page.evaluate(() => (window as unknown as { restarted?: boolean }).restarted)).toBe(true);
 });

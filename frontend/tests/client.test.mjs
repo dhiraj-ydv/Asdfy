@@ -4,7 +4,8 @@ import { createClient } from '../src/services/client.ts';
 
 test('desktop boundary sends bounded structured commands', async () => {
   const calls = [];
-  const client = createClient(async (command, args) => { calls.push([command, args]); return []; });
+  const listen = handler => ({ channel: handler });
+  const client = createClient(async (command, args) => { calls.push([command, args]); return []; }, listen);
   await client.lessons();
   await client.history('User1');
   await client.history('User1', 42);
@@ -22,6 +23,9 @@ test('desktop boundary sends bounded structured commands', async () => {
   await client.lightingConnect(7000);
   await client.lightingHighlight(3, [{ key: 'a', color: [1, 2, 3] }]);
   await client.lightingDisconnect();
+  await client.checkUpdate();
+  const onProgress = () => {};
+  await client.installUpdate(onProgress);
   assert.deepEqual(calls, [
     ['get_lessons', undefined],
     ['get_progress', { username: 'User1', limit: 100, before: null }],
@@ -31,12 +35,13 @@ test('desktop boundary sends bounded structured commands', async () => {
     ['restart_application', undefined], ['app_version', undefined], ['data_location', undefined],
     ['lighting_connect', { port: null }], ['lighting_connect', { port: 7000 }],
     ['lighting_highlight', { frame: 3, keys: [{ key: 'a', color: [1, 2, 3] }] }], ['lighting_disconnect', undefined],
+    ['update_check', undefined], ['update_install', { progress: { channel: onProgress } }],
   ]);
 });
 
 test('save failures propagate without retrying a potentially committed write', async () => {
   let writes = 0;
-  const client = createClient(async () => { writes++; throw new Error('Storage unavailable'); });
+  const client = createClient(async () => { writes++; throw new Error('Storage unavailable'); }, () => null);
   await assert.rejects(client.save({
     username: 'User1', mode: 'lesson', lesson_id: 1, wpm: 42, raw_wpm: 42, accuracy: 98,
     duration_ms: 1000, characters: 10, errors: 0, keys: [],

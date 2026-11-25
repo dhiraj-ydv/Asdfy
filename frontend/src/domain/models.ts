@@ -101,6 +101,19 @@ export interface LightingStatus {
   keys: number;
 }
 
+/** A newer signed release. `installable` is false where this copy cannot replace itself. */
+export interface UpdateInfo {
+  version: string;
+  notes: string | null;
+  installable: boolean;
+}
+
+/** Bytes of the update downloaded so far; `total` is null when the server does not say. */
+export interface UpdateProgress {
+  downloaded: number;
+  total: number | null;
+}
+
 export type LetterScope = 'learned' | 'all';
 
 export interface AdaptiveOptions {

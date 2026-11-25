@@ -91,6 +91,22 @@ pub struct Summary {
     pub keys: Vec<KeyStat>,
 }
 
+/// A newer signed release. `installable` is false where this build cannot replace itself,
+/// such as a Linux install that is not the AppImage, or a development build.
+#[derive(Debug, Serialize)]
+pub struct UpdateInfo {
+    pub version: String,
+    pub notes: Option<String>,
+    pub installable: bool,
+}
+
+/// Bytes of the update downloaded so far; `total` is absent when the server does not say.
+#[derive(Debug, Clone, Serialize)]
+pub struct UpdateProgress {
+    pub downloaded: u64,
+    pub total: Option<u64>,
+}
+
 pub fn validate_username(value: &str) -> Result<&str> {
     let name = value.trim();
     if name.is_empty() || name.chars().count() > 80 {

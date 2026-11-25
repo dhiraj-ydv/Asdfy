@@ -1,4 +1,4 @@
-import { invoke } from '@tauri-apps/api/core';
+import { Channel, invoke } from '@tauri-apps/api/core';
 import { createClient } from './client';
 
-export const desktop = createClient(invoke);
+export const desktop = createClient(invoke, handler => new Channel(handler));

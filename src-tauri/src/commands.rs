@@ -1,9 +1,11 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex, PoisonError};
+use tauri::ipc::Channel;
 use tauri::State;
+use tauri_plugin_updater::{Update, UpdaterExt};
 
 use crate::content::LESSONS;
 use crate::lighting::{Lighting, LightingStatus, LitKey, DEFAULT_PORT};
-use crate::models::{Lesson, Progress, ProgressInput, Result, Summary};
+use crate::models::{Lesson, Progress, ProgressInput, Result, Summary, UpdateInfo, UpdateProgress};
 use crate::storage::{Repository, Storage};
 
 async fn work<T: Send + 'static>(
@@ -57,6 +59,70 @@ pub fn restart_application(app: tauri::AppHandle, lighting: State<'_, Arc<Lighti
 #[tauri::command]
 pub fn app_version() -> &'static str {
     env!("CARGO_PKG_VERSION")
+}
+
+/// The release found by the last check. Installing only ever uses this, so the UI never
+/// chooses a version or download address.
+#[derive(Default)]
+pub struct PendingUpdate(Mutex<Option<Update>>);
+
+/// Only the AppImage can replace itself on Linux; development builds never replace themselves.
+fn self_updating() -> bool {
+    !cfg!(debug_assertions) && (!cfg!(target_os = "linux") || std::env::var_os("APPIMAGE").is_some())
+}
+
+fn update_error(error: tauri_plugin_updater::Error) -> String {
+    use tauri_plugin_updater::Error;
+    match error {
+        Error::Reqwest(_) | Error::Network(_) => {
+            "GitHub could not be reached. Check your connection, then try again.".into()
+        }
+        Error::ReleaseNotFound => "GitHub has no update information yet. Try again later.".into(),
+        Error::Minisign(_) | Error::Base64(_) | Error::SignatureUtf8(_) | Error::SignedVersionMismatch { .. } => {
+            "The download did not match Asdfy's release signature, so nothing was installed.".into()
+        }
+        Error::TargetNotFound(_) | Error::TargetsNotFound(_) => {
+            "The latest release has no update for this system. Download it from GitHub Releases instead.".into()
+        }
+        Error::Io(_) | Error::PreviousAppNotRestored(_) => {
+            format!("The update could not replace the installed app ({error}). Download it from GitHub Releases instead.")
+        }
+        error => format!("The update failed: {error}"),
+    }
+}
+
+#[tauri::command]
+pub async fn update_check(app: tauri::AppHandle, pending: State<'_, PendingUpdate>) -> Result<Option<UpdateInfo>> {
+    let update = app.updater().map_err(update_error)?.check().await.map_err(update_error)?;
+    let info = update.as_ref().map(|update| UpdateInfo {
+        version: update.version.clone(),
+        notes: update.body.clone(),
+        installable: self_updating(),
+    });
+    *pending.0.lock().unwrap_or_else(PoisonError::into_inner) = update;
+    Ok(info)
+}
+
+/// Downloads, verifies, and installs the checked release. Windows closes the app to run
+/// the installer; elsewhere the new version starts after `restart_application`.
+#[tauri::command]
+pub async fn update_install(progress: Channel<UpdateProgress>, pending: State<'_, PendingUpdate>) -> Result<()> {
+    if !self_updating() {
+        return Err("This copy of Asdfy cannot update itself. Download the new version from GitHub Releases.".into());
+    }
+    let update = pending.0.lock().unwrap_or_else(PoisonError::into_inner).clone()
+        .ok_or("Check for updates before installing one.")?;
+    let mut downloaded = 0;
+    update
+        .download_and_install(
+            |chunk, total| {
+                downloaded += chunk as u64;
+                let _ = progress.send(UpdateProgress { downloaded, total });
+            },
+            || {},
+        )
+        .await
+        .map_err(update_error)
 }
 
 /// Shown in Settings so people know what to back up; the path is never accepted from the UI.

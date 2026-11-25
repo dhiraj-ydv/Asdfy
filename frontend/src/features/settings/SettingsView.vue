@@ -2,16 +2,25 @@
 import { computed } from 'vue';
 import { settings } from '../../services/settings';
 import { connectLighting, lighting } from '../../services/lighting';
+import type { Updates } from '../../composables/useUpdates';
 import Icon from '../../shell/Icon.vue';
 
-defineProps<{ version: string; error: string; dataLocation: string }>();
-const emit = defineEmits<{ control: [action: 'restart' | 'close'] }>();
+const props = defineProps<{ version: string; error: string; dataLocation: string; update: Updates['update'] }>();
+const emit = defineEmits<{ control: [action: 'restart' | 'close']; check: []; install: []; restart: [] }>();
 const lightingText = computed(() => ({
   off: '',
   connecting: 'Connecting to OpenRGB…',
   on: `Connected to ${lighting.device} (${lighting.keys} keys).`,
   error: lighting.message,
 })[lighting.state]);
+const updateText = computed(() => {
+  const { state, version, progress } = props.update;
+  if (state === 'checking') return 'Checking for updates…';
+  if (state === 'current') return 'You have the latest version.';
+  if (state === 'downloading') return `Downloading Asdfy ${version}…${progress === null ? '' : ` ${Math.round(progress * 100)}%`}`;
+  if (state === 'installed') return `Asdfy ${version} is installed. Restart to start using it.`;
+  return '';
+});
 </script>
 
 <template>
@@ -83,8 +92,33 @@ const lightingText = computed(() => ({
       <h2>About and updates</h2>
       <p v-if="version">Asdfy version {{ version }}</p>
       <p v-if="error" class="error" role="alert">{{ error }}</p>
-      <p class="muted">To update, download the newer release from GitHub Releases and install it over this one.
-        Lessons and progress are kept.</p>
+      <div v-if="update.state === 'available'" class="callout update">
+        <Icon name="download" />
+        <div>
+          <strong>Asdfy {{ update.version }} is available.</strong>
+          <p v-if="update.notes" class="notes">{{ update.notes }}</p>
+          <p v-if="!update.installable" class="muted">This copy of Asdfy cannot update itself. Download the new
+            version from GitHub Releases and install it over this one.</p>
+        </div>
+      </div>
+      <p v-if="updateText" role="status">{{ updateText }}</p>
+      <progress v-if="update.state === 'downloading'" :value="update.progress ?? undefined" max="1"
+        aria-label="Update download"></progress>
+      <p v-if="update.message" class="error" role="alert">{{ update.message }}</p>
+      <div class="controls">
+        <button v-if="update.state === 'available' && update.installable" class="btn btn-primary" @click="emit('install')">
+          <Icon name="download" />Update now</button>
+        <button v-else-if="update.state === 'installed'" class="btn btn-primary" @click="emit('restart')">
+          <Icon name="restart" />Restart now</button>
+        <button v-else class="btn btn-secondary" :disabled="update.state === 'checking' || update.state === 'downloading'"
+          @click="emit('check')">Check for updates</button>
+      </div>
+      <label class="switch">
+        <input v-model="settings.checkForUpdates" type="checkbox" role="switch" />
+        <span class="switch-track"></span>
+        <span class="switch-text">Check for updates at startup<small>Asks GitHub whether a newer release exists. Updates
+          are verified against Asdfy's signing key before they are installed, and lessons and progress are kept.</small></span>
+      </label>
       <p v-if="dataLocation" class="muted">Progress is stored in <code>{{ dataLocation }}</code>. Quit the app before
         copying that folder as a backup.</p>
       <div class="controls">
@@ -105,4 +139,6 @@ code { font-size: 0.85em; padding: 1px 5px; border-radius: 4px; background: var(
 .lighting-status.on { color: var(--accent-strong); font-weight: 600; }
 .lighting-status.error { color: var(--danger); }
 .retry { width: fit-content; }
+.notes { margin-top: 6px; white-space: pre-line; }
+progress { width: 100%; max-width: 420px; accent-color: var(--accent); }
 </style>

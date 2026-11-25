@@ -3,7 +3,8 @@ import type { View } from '../domain/models';
 import type { IconName } from './icons';
 import Icon from './Icon.vue';
 
-defineProps<{ view: View; busy: boolean; streak: number }>();
+/** `update` is the version of a newer release, or empty when there is none. */
+defineProps<{ view: View; busy: boolean; streak: number; update: string }>();
 const emit = defineEmits<{ navigate: [view: View] }>();
 const sections: { view: View; label: string; icon: IconName }[] = [
   { view: 'learn', label: 'Learn', icon: 'learn' },
@@ -28,6 +29,10 @@ const sections: { view: View; label: string; icon: IconName }[] = [
         <Icon :name="section.icon" /><span class="nav-label">{{ section.label }}</span>
       </button>
     </nav>
+    <button v-if="update" class="nav-item update" :title="`Asdfy ${update} is available`" :disabled="busy"
+      @click="emit('navigate', 'settings')">
+      <Icon name="download" /><span class="nav-label">Update to {{ update }}</span>
+    </button>
     <div class="streak" :class="{ lit: streak > 0 }" :title="`${streak}-day practice streak`">
       <Icon name="flame" /><span class="nav-label">{{ streak }} day streak</span>
     </div>
@@ -68,6 +73,9 @@ const sections: { view: View; label: string; icon: IconName }[] = [
 
 .nav-item:not(:disabled):hover { background: var(--surface-2); color: var(--text); }
 .nav-item.active { background: var(--accent-soft); color: var(--accent-strong); }
+
+.nav-item.update { color: var(--accent-strong); background: var(--accent-soft); }
+.nav-item.update:not(:disabled):hover { color: var(--accent-strong); }
 
 .streak {
   display: flex;

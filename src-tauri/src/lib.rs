@@ -16,7 +16,13 @@ pub fn run() {
             }
             // Opening is lazy and retryable; a storage failure never prevents the UI opening.
             app.manage(Arc::new(storage::Storage::new(directory)));
-            app.manage(Arc::new(lighting::Lighting::default()));
+            let lighting = Arc::new(lighting::Lighting::default());
+            app.manage(Arc::clone(&lighting));
+            app.manage(commands::PendingUpdate::default());
+            // The Windows installer closes the app without the exit event, so release the keyboard first.
+            app.handle().plugin(
+                tauri_plugin_updater::Builder::new().on_before_exit(move || lighting.disconnect()).build(),
+            )?;
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -28,6 +34,8 @@ pub fn run() {
             commands::restart_application,
             commands::app_version,
             commands::data_location,
+            commands::update_check,
+            commands::update_install,
             commands::lighting_connect,
             commands::lighting_highlight,
             commands::lighting_disconnect,

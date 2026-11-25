@@ -4,21 +4,24 @@
 
 The **Desktop build** workflow (`.github/workflows/desktop-build.yml`) runs on
 pull requests, pushes to `master`, version tags, and manual dispatches. It
-produces three artifacts, each built on its own operating system, with five
-packages between them:
+produces three artifacts, each built on its own operating system, with one
+package each:
 
 | Artifact | Runner | File |
 | --- | --- | --- |
-| `Asdfy-Linux-x86_64` | `ubuntu-22.04` | `Asdfy_<version>_amd64.AppImage`, `Asdfy_<version>_amd64.deb`, `Asdfy-<version>-1.x86_64.rpm` |
+| `Asdfy-Linux-x86_64` | `ubuntu-22.04` | `Asdfy_<version>_amd64.AppImage` |
 | `Asdfy-Windows-x86_64` | `windows-2022` | `Asdfy_<version>_x64-setup.exe` (NSIS) |
 | `Asdfy-macOS-universal` | `macos-15` | `Asdfy_<version>_universal.dmg` |
 
+Linux ships only as an AppImage; `.deb` and `.rpm` are no longer built (the
+`bundle.targets` list in `src-tauri/tauri.conf.json` is `appimage`, `nsis`, `dmg`).
+
 Ordinary builds retain these as workflow artifacts for 14 days. Pushing a
-version tag publishes a GitHub prerelease with all five packages and a
-`SHA256SUMS` file. This uses the automatic per-run `GITHUB_TOKEN`; no personal
-access token is required. The release job refuses to publish unless exactly
-five packages were built (the Linux artifact's folders are flattened first, so
-`SHA256SUMS` lists plain file names), and an already published release cannot be
+version tag publishes a GitHub release with the three packages, their updater
+files, `latest.json`, and a `SHA256SUMS` file (see [In-app updates](#in-app-updates)). This uses the automatic per-run `GITHUB_TOKEN`; no personal
+access token is required. The release job refuses to publish unless every
+package was built (artifact folders are flattened first, so `SHA256SUMS` lists
+plain file names), and an already published release cannot be
 overwritten by rerunning the workflow; create a new version instead.
 
 ## Jobs
@@ -31,18 +34,15 @@ overwritten by rerunning the workflow; create a new version instead.
    (`cargo test --locked --lib`) on each platform, then
    `npm run tauri -- build --bundles <format>`, which builds the frontend and the
    release binary and bundles it:
-   - Linux installs the WebKitGTK 4.1 build prerequisites, `libfuse2` (only the
-     build runner gets it; the finished AppImage does not need it), and `rpm`, then
-     builds the
-     AppImage, `.deb`, and `.rpm`. It starts the AppImage, then installs the `.deb`
-     and starts that, each under Xvfb for 20 seconds, checking that it stayed open
-     and created `~/.local/share/io.github.exolithelabs.asdfy/progress.sqlite3`.
-     The runner cannot install an RPM, so the `.rpm` is checked with `rpm -qip`,
-     `-qpR`, and `-qpl` instead.
+   - Linux installs the WebKitGTK 4.1 build prerequisites and `libfuse2` (only the
+     build runner gets it; the finished AppImage does not need it), then builds the
+     AppImage. It starts the AppImage under Xvfb for 20 seconds, checking that it
+     stayed open and created
+     `~/.local/share/io.github.exolithelabs.asdfy/progress.sqlite3`.
    - Windows builds the per-user NSIS installer (`installMode: currentUser`).
    - macOS adds the `aarch64` and `x86_64` Rust targets and builds a
      `universal-apple-darwin` disk image.
-3. **Publish GitHub prerelease** runs only for `v*` tags.
+3. **Publish GitHub release** runs only for `v*` tags.
 
 Bundle settings live in the `bundle` section of `src-tauri/tauri.conf.json`.
 
@@ -56,14 +56,63 @@ Apple Developer ID certificate and notarization credentials, and a Windows code
 signing certificate, stored as GitHub Actions secrets and passed to the Tauri
 build step.
 
-## Updates
+## In-app updates
 
-There is no in-app updater, and the app makes no HTTP requests (the optional
-keyboard backlight connects only to OpenRGB on `127.0.0.1`). **Settings**
-shows the installed version. Users update by installing the newer package over
-the old one; the data folder is named after the application ID
-`io.github.exolithelabs.asdfy`, which `scripts/check-release.mjs` keeps fixed so
-progress survives upgrades.
+Asdfy updates itself with the Tauri updater plugin
+(`tauri-plugin-updater`), driven entirely from Rust (`update_check` and
+`update_install` in `src-tauri/src/commands.rs`); the webview has no updater
+permissions. The app reads
+
+```text
+https://github.com/exolithelabs/Asdfy/releases/latest/download/latest.json
+```
+
+and installs only files whose minisign signature matches `plugins.updater.pubkey`
+in `src-tauri/tauri.conf.json`. The data folder is named after the application ID
+`io.github.exolithelabs.asdfy`, which `scripts/check-release.mjs` keeps fixed, so
+progress survives updates.
+
+| Platform | Update file | Installed by |
+| --- | --- | --- |
+| Linux | `Asdfy_<version>_amd64.AppImage` | Replacing the running AppImage file; the user then restarts |
+| Windows | `Asdfy_<version>_x64-setup.exe` | Running the NSIS installer in passive mode, which closes and reopens the app |
+| macOS | `Asdfy.app.tar.gz` (universal) | Replacing the app bundle; the user then restarts |
+
+Only an AppImage can update itself on Linux (the app checks `$APPIMAGE`), and
+debug builds never install updates. Elsewhere, Settings announces the release and
+points to GitHub Releases.
+
+### What a release build needs
+
+The committed config does not set `bundle.createUpdaterArtifacts`, so ordinary
+builds need no secrets. A tag build must:
+
+1. Provide the private key as `TAURI_SIGNING_PRIVATE_KEY` (and
+   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` if it has one) and enable updater
+   artifacts for that build, for example:
+
+   ```bash
+   npm run tauri -- build --bundles appimage --config '{"bundle":{"createUpdaterArtifacts":true}}'
+   ```
+
+   This writes a `.sig` next to the AppImage and the NSIS installer, and on macOS
+   adds `bundle/macos/Asdfy.app.tar.gz` with its `.sig`. Upload those with the
+   packages.
+2. After downloading every platform's files into one flat folder, write the
+   manifest and publish it with the release:
+
+   ```bash
+   node scripts/updater-manifest.mjs release-artifacts "$GITHUB_REF_NAME"
+   ```
+
+   It fails unless each platform has exactly one update file with a signature.
+3. Publish the release as a normal (not pre-) release. GitHub's
+   `releases/latest` URL skips prereleases and drafts, so a prerelease is never
+   offered to installed apps.
+
+Never rotate the signing key casually: installed apps trust only the public key
+they shipped with, so a release signed with a new key cannot reach them. Keep
+the private key only in the Actions secret.
 
 ## Changing the database schema
 
@@ -112,10 +161,10 @@ git tag v0.2.0
 git push origin master v0.2.0
 ```
 
-After all package jobs pass, the workflow publishes the prerelease with its
-downloadable assets. Install-test each package (including an N → N+1 upgrade
-where possible, confirming progress survives) before promoting it to a stable
-release.
+After all package jobs pass, the workflow publishes the release with its
+downloadable assets, and installed apps offer it at their next start. Install-test
+each package first where possible, including an in-app N → N+1 update that
+confirms progress survives.
 
 ## Before the first public release
 

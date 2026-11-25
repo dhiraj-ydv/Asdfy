@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted } from 'vue';
 import { useTutor } from './composables/useTutor';
+import { useUpdates } from './composables/useUpdates';
 import { desktop } from './services/desktop';
+import { settings } from './services/settings';
 import { MODE_VIEWS } from './domain/models';
 import { streak } from './domain/stats';
 import AppSidebar from './shell/AppSidebar.vue';
@@ -14,6 +16,7 @@ import StatsView from './features/stats/StatsView.vue';
 import SettingsView from './features/settings/SettingsView.vue';
 
 const tutor = useTutor(desktop);
+const updates = useUpdates(desktop);
 const {
   lessons, summary, view, session, sessionKey, loading, error, history, historyLoading, historyError, hasMore,
   result, previousBest, saving, saveMessage, customText, adaptiveOptions, testOptions, installedVersion,
@@ -23,12 +26,16 @@ const inSession = computed(() => !!session.value && MODE_VIEWS[session.value.mod
 const practiceEnabled = computed(() => inSession.value && !result.value && !loading.value);
 const testBest = computed(() => summary.value.modes.find(entry => entry.mode === 'test') ?? null);
 const streakDays = computed(() => streak(summary.value.days));
-onMounted(tutor.load);
+const updateNotice = computed(() => ['available', 'installed'].includes(updates.update.state) ? updates.update.version : '');
+onMounted(() => {
+  void tutor.load();
+  if (settings.checkForUpdates) void updates.check(true);
+});
 </script>
 
 <template>
   <div class="app">
-    <AppSidebar :view="view" :busy="saving" :streak="streakDays" @navigate="tutor.navigate" />
+    <AppSidebar :view="view" :busy="saving" :streak="streakDays" :update="updateNotice" @navigate="tutor.navigate" />
     <main class="content">
       <div v-if="error" class="banner" role="alert">
         <p>{{ error }}</p>
@@ -49,7 +56,8 @@ onMounted(tutor.load);
         <StatsView v-else-if="view === 'stats'" :summary="summary" :history="history" :loading="historyLoading"
           :error="historyError" :has-more="hasMore" @retry="tutor.loadHistory()" @more="tutor.loadHistory(true)" />
         <SettingsView v-else-if="view === 'settings'" :version="installedVersion" :error="versionError" :data-location="dataLocation"
-          @control="tutor.control" />
+          :update="updates.update" @control="tutor.control" @check="updates.check()" @install="updates.install"
+          @restart="updates.restart" />
       </template>
     </main>
   </div>

@@ -18,12 +18,13 @@ choose a version, and expand **Assets**.
 
 | Download | Platform |
 | --- | --- |
-| `Asdfy_<version>_amd64.deb` | Debian 12+, Ubuntu 22.04+, and derivatives (x86-64) |
-| `Asdfy-<version>-1.x86_64.rpm` | Fedora, openSUSE, and other RPM distributions (x86-64) |
 | `Asdfy_<version>_amd64.AppImage` | Any x86-64 Linux distribution, no installation |
 | `Asdfy_<version>_x64-setup.exe` | Windows 10 and 11, x86-64 |
 | `Asdfy_<version>_universal.dmg` | macOS 10.15 or later, Intel and Apple Silicon |
 | `SHA256SUMS` | Checksums for the files above |
+
+Files ending in `.sig`, the `.app.tar.gz` archive, and `latest.json` are used by
+the in-app updater; you do not need to download them.
 
 The automatically generated **Source code** archives contain project sources,
 not installers. Installed users do not need development tools.
@@ -34,42 +35,13 @@ check the file against `SHA256SUMS` (`sha256sum -c SHA256SUMS --ignore-missing`)
 
 ### Linux
 
-Pick one package; all three keep progress in the same folder, so you can switch
-between them without losing anything.
+Asdfy ships for Linux as an AppImage, which runs on any x86-64 distribution and
+bundles everything it needs, including its own WebKitGTK.
 
-- **`.deb` or `.rpm`** if your distribution supports one: Asdfy is added to your
-  application menu, uses your system's WebKitGTK, and runs natively on Wayland.
-  These packages need WebKitGTK 4.1 (`libwebkit2gtk-4.1` / `webkit2gtk4.1`),
-  which Ubuntu 22.04+, Debian 12+, and current Fedora and openSUSE releases provide;
-  your package manager installs it.
-- **AppImage** on any other distribution, or to try Asdfy without installing. It
-  bundles its own WebKitGTK, so it is larger.
-
-The Linux packages are not GPG-signed and are not in any repository, so your
-package manager will not update them; install a newer release the same way.
-
-#### Debian and Ubuntu (`.deb`)
-
-```bash
-sudo apt install ./Asdfy_<version>_amd64.deb   # install or update
-sudo apt remove asdfy                          # uninstall
-```
-
-The leading `./` matters: without it, `apt` looks for a package in its repositories.
-
-#### Fedora and openSUSE (`.rpm`)
-
-```bash
-sudo dnf install ./Asdfy-<version>-1.x86_64.rpm   # Fedora: install or update
-sudo dnf remove asdfy                             # Fedora: uninstall
-
-sudo zypper install --allow-unsigned-rpm ./Asdfy-<version>-1.x86_64.rpm   # openSUSE
-sudo zypper remove asdfy
-```
-
-`zypper` refuses unsigned local packages unless you pass `--allow-unsigned-rpm`.
-
-#### AppImage
+If you installed an earlier Asdfy from a `.deb` or `.rpm`, remove that package
+(`sudo apt remove asdfy` or `sudo dnf remove asdfy`) and use the AppImage instead.
+Both keep progress in the same folder, so nothing is lost, and only the AppImage
+can update itself.
 
 ```bash
 chmod +x Asdfy_<version>_amd64.AppImage
@@ -78,7 +50,8 @@ chmod +x Asdfy_<version>_amd64.AppImage
 
 To add the AppImage to your application menu, use a tool such as Gear Lever or
 AppImageLauncher, or move the file somewhere permanent and create a desktop entry.
-To update, replace the file with the newer AppImage.
+Asdfy updates the AppImage file in place (see [Updating](#updating)), so keep it in
+a folder your user can write to, such as `~/Applications`.
 
 **FUSE.** An AppImage mounts itself as a read-only filesystem when it starts, using
 FUSE. Asdfy's AppImage uses the current static AppImage runtime, which carries its
@@ -105,8 +78,7 @@ folder first (slower to start, nothing is installed):
 ./Asdfy_<version>_amd64.AppImage --appimage-extract-and-run
 ```
 
-Setting `APPIMAGE_EXTRACT_AND_RUN=1` does the same. Alternatively, use the `.deb`
-or `.rpm`, which do not use FUSE at all.
+Setting `APPIMAGE_EXTRACT_AND_RUN=1` does the same.
 
 **If the AppImage window looks wrongly scaled on Wayland.** The AppImage always runs
 through XWayland: the GTK start-up hook that Tauri's AppImage bundler adds sets
@@ -115,19 +87,18 @@ through XWayland: the GTK start-up hook that Tauri's AppImage bundler adds sets
 applies `GDK_SCALE`, so a session that exports `GDK_SCALE=2` for a 1× monitor (some
 Hyprland setups do) draws Asdfy at double size. Start it with the scale that matches
 your display, for example `GDK_SCALE=1 ./Asdfy_<version>_amd64.AppImage`, correct
-`GDK_SCALE` in your session settings, or use the `.deb` or `.rpm`, which run natively
-on Wayland and are not affected.
+`GDK_SCALE` in your session settings.
 
 **NVIDIA.** WebKitGTK's DMA-BUF renderer can close Wayland windows on some NVIDIA
-systems, so every Linux package of Asdfy turns it off by default. To opt back in for
+systems, so the AppImage turns it off by default. To opt back in for
 diagnosis, start the app with `WEBKIT_DISABLE_DMABUF_RENDERER=0`.
 
 ### Windows
 
 Run `Asdfy_<version>_x64-setup.exe`. It installs for the current user without
 administrator rights. Because the installer is unsigned, SmartScreen may show
-**Windows protected your PC**; choose **More info → Run anyway**. To update, run
-the newer installer. Uninstall from **Settings → Apps**.
+**Windows protected your PC**; choose **More info → Run anyway**. Uninstall from
+**Settings → Apps**.
 
 ### macOS
 
@@ -141,12 +112,24 @@ reports the app as damaged, clear the download quarantine flag:
 xattr -dr com.apple.quarantine /Applications/Asdfy.app
 ```
 
-To update, replace the app in **Applications** with the newer one.
-
 ### Updating
 
-Open **Settings** to see the installed version. Install the newer release over
-the current one as described for your platform. Your lessons and progress are kept.
+Asdfy updates itself. At startup it asks GitHub whether a newer release exists and,
+if so, shows **Update to** and the new version in the sidebar. Open **Settings → About and
+updates** to see the installed version, the new version and its notes, then choose
+**Update now**. Asdfy downloads the update, shows its progress, checks it against
+Asdfy's release signing key, and refuses anything that does not match. Your
+lessons and progress are kept.
+
+- **Linux (AppImage)** and **macOS**: the new version replaces the installed one;
+  choose **Restart now** to start it.
+- **Windows**: Asdfy closes and the installer runs on its own, then reopens Asdfy.
+
+**Check for updates** in Settings checks again at any time. Switch off **Check for
+updates at startup** to stop the automatic check. You can always update by hand
+instead, by installing the newer release over the current one as described above.
+The AppImage can only update itself if your user can write to the folder it is in;
+development builds never update themselves.
 
 ## Using the app
 
@@ -175,7 +158,8 @@ the current one as described for your platform. Your lessons and progress are ke
    heatmap, your weakest keys, an activity calendar, and session history.
 8. **Settings** offers system, light, or dark theme; three typing text sizes;
    stop on errors (the cursor waits for the correct key); toggles for the
-   keyboard and finger guide; keyboard backlight; and where your progress is stored.
+   keyboard and finger guide; keyboard backlight; the installed version and
+   in-app updates; and where your progress is stored.
 
 ### Keyboard backlight (optional)
 
@@ -211,7 +195,7 @@ separate progress; there is no cloud synchronization or online login.
 
 | Platform | Data folder |
 | --- | --- |
-| Linux (all three packages) | `~/.local/share/io.github.exolithelabs.asdfy/` (or `$XDG_DATA_HOME/io.github.exolithelabs.asdfy/`) |
+| Linux | `~/.local/share/io.github.exolithelabs.asdfy/` (or `$XDG_DATA_HOME/io.github.exolithelabs.asdfy/`) |
 | Windows | `%APPDATA%\io.github.exolithelabs.asdfy\` |
 | macOS | `~/Library/Application Support/io.github.exolithelabs.asdfy/` |
 
@@ -219,7 +203,7 @@ separate progress; there is no cloud synchronization or online login.
 `io.github.exolithelabs.asdfy` names these folders, so it never changes between
 versions. On Linux and macOS the folder and database are readable only by your
 user. The webview also stores small UI preferences (theme, text size, and
-practice toggles) in its own local storage, separate from the progress database.
+practice and update toggles) in its own local storage, separate from the progress database.
 
 To back up progress, fully quit the app, then copy the data folder somewhere
 safe. SQLite may also create `progress.sqlite3-wal` and `progress.sqlite3-shm`
@@ -253,20 +237,26 @@ import, or change TypeDH data, which stays in
 | Local backend | Rust Tauri commands, compiled into the desktop app |
 | Data storage | SQLite through rusqlite, with SQLite bundled at compile time |
 | Frontend/backend communication | Tauri IPC with typed command payloads |
-| Packages | Tauri bundler: AppImage, .deb, .rpm, NSIS installer, and DMG |
+| Packages | Tauri bundler: AppImage, NSIS installer, and DMG |
+| Updates | Tauri updater plugin, driven from Rust, with minisign-signed releases |
 
 The frontend invokes `get_lessons`, `get_summary`, `get_progress`,
-`save_progress`, `data_location`, and the `lighting_*` commands directly through Tauri. The lesson catalog
+`save_progress`, `data_location`, `update_check`, `update_install`, and the `lighting_*`
+commands directly through Tauri. The lesson catalog
 is compiled into the binary, so lessons load even when storage is unavailable;
 practice text for generated lessons, smart practice, and speed tests is built in
 the frontend from a bundled word list. Rust serializes database access on a
 background worker and validates the command payloads; the webview cannot submit
-SQL or choose database paths. The app makes no HTTP requests. Its only network
-connection is the optional keyboard backlight: when switched on, Rust opens a TCP
+SQL or choose database paths. The app makes HTTPS requests only to check for and
+download updates: Rust fetches `latest.json` from this repository's latest GitHub
+release and, when asked, the update it names, then verifies the download against the
+public key in `src-tauri/tauri.conf.json` before installing it. The webview chooses
+neither the address nor the version; it can only install the release Rust last found.
+The only other network connection is the optional keyboard backlight: when switched on, Rust opens a TCP
 connection to the OpenRGB SDK server at `127.0.0.1` and speaks OpenRGB's binary
 protocol with an in-house client written from OpenRGB's protocol documentation; the
-webview chooses neither host nor device. There is no in-app updater, CORS
-configuration, API tokens, or shell plugin.
+webview chooses neither host nor device. There is no CORS configuration, API
+token, or shell plugin.
 SQLite retains WAL mode, full synchronization, foreign keys, and a write timeout.
 Failed database opens can be retried from the UI. Writes are never retried
 automatically, and loading/save failures are shown in the interface.
@@ -278,12 +268,12 @@ frontend/src/
   domain/           Plain TypeScript: typing engine, QWERTY keyboard map, drill
                     generator, word list, statistics helpers, and models
   services/         Typed desktop client, settings, and UI preferences
-  composables/      App coordination and DOM typing lifecycle
+  composables/      App coordination, in-app updates, and DOM typing lifecycle
   shell/            Sidebar navigation and icons
   features/         Learn, smart practice, speed test, custom text, practice
                     session, statistics, and settings views
   styles/           Design tokens (light and dark) and shared components
-frontend/tests/     Domain, generator, command boundary, and app-state tests
+frontend/tests/     Domain, generator, command boundary, updater, and app-state tests
 frontend/e2e/       Browser interaction tests with a mocked native boundary
 src-tauri/src/
   content/          Built-in lesson catalog
@@ -293,7 +283,7 @@ src-tauri/src/
   lighting/         OpenRGB SDK client for the optional keyboard backlight, with a
                     fake-server test suite
 src-tauri/icons/    App icon source (app-icon.svg) and generated platform icons
-scripts/            Release version checks
+scripts/            Release version checks and the updater manifest (latest.json) builder
 .github/            Build/release workflow and Dependabot configuration
 docs/               Additional maintainer documentation (docs/RELEASING.md)
 package.json        Root npm project: Tauri CLI plus the version source of truth
@@ -311,15 +301,15 @@ Rust, and Tauri versions; the private frontend package has its own version.
 
 The normal workflow is to edit code locally, commit, and push. GitHub-hosted
 runners test the code and build each platform's packages on its own operating
-system: the AppImage, `.deb`, and `.rpm` on Ubuntu 22.04 (its older glibc lets
-them run on more distributions), the Windows installer on Windows, and a universal
+system: the AppImage on Ubuntu 22.04 (its older glibc lets it run on more
+distributions), the Windows installer on Windows, and a universal
 macOS disk image on macOS.
 
 | Trigger | Result |
 | --- | --- |
 | Pull request | Tests and all packages; Actions artifacts |
 | Push to `master` | Tests and all packages; Actions artifacts |
-| Push a `v*` tag | All packages, followed by a published GitHub prerelease with downloads |
+| Push a `v*` tag | All packages, followed by a published GitHub release with downloads and the updater manifest |
 | Manual **Run workflow** | Build for the selected ref; publication only when the ref is a `v*` tag |
 
 Actions artifacts are retained for 14 days. Release assets are attached separately
@@ -338,15 +328,15 @@ git tag v0.2.0
 git push origin master v0.2.0
 ```
 
-After all three platform jobs pass, GitHub Actions attaches the five packages and
-publishes the prerelease automatically. The release job uses GitHub's automatic token.
+After all three platform jobs pass, GitHub Actions attaches the three packages, their
+updater files, and `latest.json`, and publishes the release automatically. The release job uses GitHub's automatic token.
 The workflow checks that version files and tags agree, runs frontend
 regression tests and JavaScript dependency audits, and tests the native Rust
 backend's validation, history pagination, persistence, and statistics on Linux,
 Windows, and macOS. Browser tests cover completing, repeating, navigating,
-restarting, custom practice, persisted settings, and the keyboard backlight; startup
-checks verify that the built AppImage and the installed `.deb` stay open and
-initialize storage, and the `.rpm` is checked for a valid header and file list. Actions are pinned to commit
+restarting, custom practice, persisted settings, the keyboard backlight, and in-app
+updates; a startup check verifies that the built AppImage stays open and initializes
+storage. Actions are pinned to commit
 IDs. Published releases cannot be overwritten by a rerun; use a new version tag.
 Releases include `SHA256SUMS` for the packages. See
 [docs/RELEASING.md](docs/RELEASING.md) for details.
@@ -373,7 +363,7 @@ store progress in a `development/` subdirectory of the data folder, separate
 from installed release builds.
 
 To build a package for your own platform instead, run
-`npm run tauri build -- --bundles appimage,deb,rpm` (Linux), `--bundles nsis`
+`npm run tauri build -- --bundles appimage` (Linux), `--bundles nsis`
 (Windows), or `--bundles dmg` (macOS). Output is written under `src-tauri/target/release/bundle/`.
 
 To change the app icon, edit `src-tauri/icons/app-icon.svg`, run
