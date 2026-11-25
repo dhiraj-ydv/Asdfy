@@ -58,16 +58,16 @@ jobs:
       matrix:
         include:
           # Ubuntu 22.04's older glibc lets the AppImage run on more distributions.
+          # Linux ships only an AppImage. Updater signatures are separate globs so
+          # pull requests and branch builds, which do not sign, still upload the package.
           - name: Linux
             os: ubuntu-22.04
-            bundles: appimage,deb,rpm
+            bundles: appimage
             target: ''
             rust-targets: ''
             artifact: Asdfy-Linux-x86_64
-            path: |
-              src-tauri/target/release/bundle/appimage/*.AppImage
-              src-tauri/target/release/bundle/deb/*.deb
-              src-tauri/target/release/bundle/rpm/*.rpm
+            path: src-tauri/target/release/bundle/appimage/*.AppImage
+            updater: src-tauri/target/release/bundle/appimage/*.AppImage.sig
           - name: Windows
             os: windows-2022
             bundles: nsis
@@ -75,6 +75,7 @@ jobs:
             rust-targets: ''
             artifact: Asdfy-Windows-x86_64
             path: src-tauri/target/release/bundle/nsis/*-setup.exe
+            updater: src-tauri/target/release/bundle/nsis/*-setup.exe.sig
           - name: macOS
             os: macos-15
             bundles: dmg
@@ -82,6 +83,7 @@ jobs:
             rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
             artifact: Asdfy-macOS-universal
             path: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+            updater: src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz|src-tauri/target/universal-apple-darwin/release/bundle/macos/*.app.tar.gz.sig
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
@@ -92,7 +94,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y libwebkit2gtk-4.1-dev libayatana-appindicator3-dev librsvg2-dev \
-            libxdo-dev libssl-dev patchelf file libfuse2 xvfb rpm
+            libxdo-dev libssl-dev patchelf file libfuse2 xvfb
 
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
         with:
@@ -121,64 +123,88 @@ jobs:
 
       - name: Build ${{ matrix.bundles }} package
         shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
           args=(build --bundles "${{ matrix.bundles }}")
           if [[ -n "${{ matrix.target }}" ]]; then args+=(--target "${{ matrix.target }}"); fi
+          # Only version tags sign updater artifacts. Other runs keep createUpdaterArtifacts off
+          # so they need no secret. An empty password is unset so an unencrypted key can sign.
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            if [[ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]]; then
+              echo "Tag builds require the TAURI_SIGNING_PRIVATE_KEY secret." >&2
+              exit 1
+            fi
+            if [[ -z "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" ]]; then
+              unset TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+            fi
+            args+=(--config '{"bundle":{"createUpdaterArtifacts":true}}')
+          else
+            unset TAURI_SIGNING_PRIVATE_KEY TAURI_SIGNING_PRIVATE_KEY_PASSWORD
+          fi
           npm run tauri -- "${args[@]}"
 
-      - name: Linux package smoke tests
+      - name: Linux AppImage smoke test
         if: runner.os == 'Linux'
         run: |
           bundle=src-tauri/target/release/bundle
           data="$HOME/.local/share/io.github.exolithelabs.asdfy"
-          # Each package must stay open for 20 seconds and create its database.
-          launch() {
-            set +e
-            xvfb-run -a dbus-run-session -- timeout 20s env GDK_BACKEND=x11 LIBGL_ALWAYS_SOFTWARE=1 \
-              APPIMAGE_EXTRACT_AND_RUN=1 "$1" > /tmp/asdfy-startup.log 2>&1
-            status=$?
-            set -e
-            cat /tmp/asdfy-startup.log
-            if [[ "$status" != 124 ]]; then
-              echo "$1 exited during startup (status $status)" >&2
-              exit 1
-            fi
-            test -f "$data/progress.sqlite3"
-            rm -rf "$data"
-          }
-
           appimage=$(ls "$bundle"/appimage/*.AppImage)
           chmod +x "$appimage"
-          launch "$appimage"
+          # The AppImage must stay open for 20 seconds and create its database.
+          set +e
+          xvfb-run -a dbus-run-session -- timeout 20s env GDK_BACKEND=x11 LIBGL_ALWAYS_SOFTWARE=1 \
+            APPIMAGE_EXTRACT_AND_RUN=1 "$appimage" > /tmp/asdfy-startup.log 2>&1
+          status=$?
+          set -e
+          cat /tmp/asdfy-startup.log
+          if [[ "$status" != 124 ]]; then
+            echo "$appimage exited during startup (status $status)" >&2
+            exit 1
+          fi
+          test -f "$data/progress.sqlite3"
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            test -f "$bundle"/appimage/*.AppImage.sig
+          fi
 
-          deb=$(ls "$PWD/$bundle"/deb/*.deb)
-          dpkg-deb --info "$deb"
-          sudo apt-get install -y "$deb"
-          package=$(dpkg-deb --field "$deb" Package)
-          launch "$(dpkg -L "$package" | grep -m1 '^/usr/bin/')"
-
-          # The runner cannot install an RPM, but it can check that the package is well formed.
-          rpm=$(ls "$bundle"/rpm/*.rpm)
-          rpm -qip "$rpm"
-          rpm -qpR "$rpm"
-          rpm -qpl "$rpm" | grep -q '^/usr/bin/'
+      - name: Collect artifact paths
+        id: bundle
+        shell: bash
+        run: |
+          {
+            echo 'paths<<EOF'
+            printf '%s\n' "${{ matrix.path }}"
+            if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+              IFS='|' read -ra updater_globs <<< "${{ matrix.updater }}"
+              printf '%s\n' "${updater_globs[@]}"
+            fi
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
 
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: ${{ matrix.artifact }}
-          path: ${{ matrix.path }}
+          path: ${{ steps.bundle.outputs.paths }}
           if-no-files-found: error
           retention-days: 14
 
   release:
-    name: Publish GitHub prerelease
+    name: Publish GitHub release
     if: startsWith(github.ref, 'refs/tags/v')
     needs: package
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7
+        with:
+          node-version: 22
+
       - name: Download packaged applications
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
         with:
@@ -186,23 +212,53 @@ jobs:
           pattern: Asdfy-*
           merge-multiple: true
 
-      - name: Create or update draft release
+      - name: Publish release and updater manifest
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
         run: |
-          # The Linux artifact keeps appimage/, deb/ and rpm/ folders; flatten them so
-          # SHA256SUMS names files exactly as they are published.
+          # Nested bundle folders (dmg/ and macos/) are flattened so SHA256SUMS and
+          # latest.json name files exactly as they are published.
           find release-artifacts -mindepth 2 -type f -exec mv -t release-artifacts {} +
           find release-artifacts -mindepth 1 -type d -empty -delete
-          mapfile -d '' files < <(find release-artifacts -type f -print0)
-          if [[ ${#files[@]} -ne 5 ]]; then
-            echo "Expected 5 packages (AppImage, .deb, .rpm, Windows installer, macOS disk image), found ${#files[@]}" >&2
+          if find release-artifacts -mindepth 2 -type f | grep -q .; then
+            echo "Release files are still nested:" >&2
+            find release-artifacts -type f >&2
             exit 1
           fi
 
+          (
+            cd release-artifacts
+            shopt -s nullglob
+            require_one() {
+              local pattern=$1 label=$2
+              local matches=( $pattern )
+              if [[ ${#matches[@]} -ne 1 ]]; then
+                echo "Expected one ${label} (${pattern}), found ${#matches[@]}: ${matches[*]}" >&2
+                exit 1
+              fi
+            }
+            require_one '*.AppImage' 'Linux AppImage'
+            require_one '*.AppImage.sig' 'Linux AppImage signature'
+            require_one '*-setup.exe' 'Windows installer'
+            require_one '*-setup.exe.sig' 'Windows installer signature'
+            require_one '*.dmg' 'macOS disk image'
+            require_one '*.app.tar.gz' 'macOS updater archive'
+            require_one '*.app.tar.gz.sig' 'macOS updater signature'
+            mapfile -d '' all < <(find . -maxdepth 1 -type f -print0)
+            if [[ ${#all[@]} -ne 7 ]]; then
+              echo "Expected 7 release files (3 packages, the macOS updater archive, and 3 signatures), found ${#all[@]}:" >&2
+              printf '%s\n' "${all[@]}" >&2
+              exit 1
+            fi
+          )
+
+          gh api "repos/${GH_REPO}/releases/generate-notes" -f tag_name="$GITHUB_REF_NAME" --jq .body > /tmp/release-notes.md
+          node scripts/updater-manifest.mjs release-artifacts "$GITHUB_REF_NAME" "$(cat /tmp/release-notes.md)"
+
           (cd release-artifacts && find . -type f -print0 | sort -z | xargs -0 sha256sum) > SHA256SUMS
+          mapfile -d '' files < <(find release-artifacts -type f -print0)
           files+=(SHA256SUMS)
 
           if gh release view "$GITHUB_REF_NAME" >/dev/null 2>&1; then
@@ -211,11 +267,12 @@ jobs:
               exit 1
             fi
             gh release upload "$GITHUB_REF_NAME" "${files[@]}" --clobber
+            gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease=false --latest \
+              --notes-file /tmp/release-notes.md --title "Asdfy $GITHUB_REF_NAME"
           else
             gh release create "$GITHUB_REF_NAME" "${files[@]}" \
-              --draft \
-              --generate-notes \
+              --notes-file /tmp/release-notes.md \
               --title "Asdfy $GITHUB_REF_NAME" \
-              --verify-tag
+              --verify-tag \
+              --latest
           fi
-          gh release edit "$GITHUB_REF_NAME" --draft=false --prerelease

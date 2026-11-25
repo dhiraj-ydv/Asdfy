@@ -329,7 +329,10 @@ git push origin master v0.2.0
 ```
 
 After all three platform jobs pass, GitHub Actions attaches the three packages, their
-updater files, and `latest.json`, and publishes the release automatically. The release job uses GitHub's automatic token.
+updater files, and `latest.json`, and publishes a stable release automatically. The release job uses GitHub's automatic token.
+Tag builds sign the updater files with the `TAURI_SIGNING_PRIVATE_KEY` repository secret, and with
+`TAURI_SIGNING_PRIVATE_KEY_PASSWORD` when the key has a password. Add that secret before the first version tag.
+Pull requests and branch builds do not create updater artifacts.
 The workflow checks that version files and tags agree, runs frontend
 regression tests and JavaScript dependency audits, and tests the native Rust
 backend's validation, history pagination, persistence, and statistics on Linux,
@@ -338,7 +341,7 @@ restarting, custom practice, persisted settings, the keyboard backlight, and in-
 updates; a startup check verifies that the built AppImage stays open and initializes
 storage. Actions are pinned to commit
 IDs. Published releases cannot be overwritten by a rerun; use a new version tag.
-Releases include `SHA256SUMS` for the packages. See
+Releases include `SHA256SUMS` for the published files. See
 [docs/RELEASING.md](docs/RELEASING.md) for details.
 
 ## Development

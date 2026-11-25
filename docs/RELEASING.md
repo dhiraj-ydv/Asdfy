@@ -16,9 +16,10 @@ package each:
 Linux ships only as an AppImage; `.deb` and `.rpm` are no longer built (the
 `bundle.targets` list in `src-tauri/tauri.conf.json` is `appimage`, `nsis`, `dmg`).
 
-Ordinary builds retain these as workflow artifacts for 14 days. Pushing a
-version tag publishes a GitHub release with the three packages, their updater
-files, `latest.json`, and a `SHA256SUMS` file (see [In-app updates](#in-app-updates)). This uses the automatic per-run `GITHUB_TOKEN`; no personal
+Ordinary builds retain these packages as workflow artifacts for 14 days. A
+version tag also uploads each updater signature, and the macOS `.app.tar.gz`,
+in those same artifacts, then publishes a GitHub release with the three
+packages, their updater files, `latest.json`, and a `SHA256SUMS` file (see [In-app updates](#in-app-updates)). This uses the automatic per-run `GITHUB_TOKEN`; no personal
 access token is required. The release job refuses to publish unless every
 package was built (artifact folders are flattened first, so `SHA256SUMS` lists
 plain file names), and an already published release cannot be
@@ -42,7 +43,14 @@ overwritten by rerunning the workflow; create a new version instead.
    - Windows builds the per-user NSIS installer (`installMode: currentUser`).
    - macOS adds the `aarch64` and `x86_64` Rust targets and builds a
      `universal-apple-darwin` disk image.
-3. **Publish GitHub release** runs only for `v*` tags.
+3. **Publish GitHub release** (`ubuntu-latest`) runs only for `v*` tags. It
+   downloads the three artifacts, flattens nested bundle folders, and refuses to
+   publish unless the AppImage, Windows installer, macOS disk image, macOS
+   `.app.tar.gz` updater archive, and a `.sig` for each updater file are all
+   present as exactly one file each. It writes `latest.json` with
+   `scripts/updater-manifest.mjs` (notes come from GitHub's generated release
+   notes) and `SHA256SUMS`, then publishes a stable release. A release that is
+   already published is left unchanged.
 
 Bundle settings live in the `bundle` section of `src-tauri/tauri.conf.json`.
 
@@ -82,33 +90,33 @@ Only an AppImage can update itself on Linux (the app checks `$APPIMAGE`), and
 debug builds never install updates. Elsewhere, Settings announces the release and
 points to GitHub Releases.
 
-### What a release build needs
+### What a tag build does
 
-The committed config does not set `bundle.createUpdaterArtifacts`, so ordinary
-builds need no secrets. A tag build must:
+The committed config does not set `bundle.createUpdaterArtifacts`, so pull
+requests, pushes to `master`, and manual runs of other refs need no signing
+secret and do not produce updater files.
 
-1. Provide the private key as `TAURI_SIGNING_PRIVATE_KEY` (and
-   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` if it has one) and enable updater
-   artifacts for that build, for example:
+On a `v*` tag the workflow does three things:
+
+1. The package job requires the Actions secret `TAURI_SIGNING_PRIVATE_KEY`.
+   When `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` is non-empty it is passed through;
+   an empty password secret is omitted so an unencrypted key can still sign.
+   The build passes `--config '{"bundle":{"createUpdaterArtifacts":true}}'`,
+   which writes a `.sig` next to the AppImage and the NSIS installer, and on
+   macOS adds `bundle/macos/Asdfy.app.tar.gz` with its `.sig`. Those files are
+   uploaded with the packages.
+2. The release job flattens every platform's files into one folder and writes
+   the manifest:
 
    ```bash
-   npm run tauri -- build --bundles appimage --config '{"bundle":{"createUpdaterArtifacts":true}}'
+   node scripts/updater-manifest.mjs release-artifacts "$GITHUB_REF_NAME" "<generated notes>"
    ```
 
-   This writes a `.sig` next to the AppImage and the NSIS installer, and on macOS
-   adds `bundle/macos/Asdfy.app.tar.gz` with its `.sig`. Upload those with the
-   packages.
-2. After downloading every platform's files into one flat folder, write the
-   manifest and publish it with the release:
-
-   ```bash
-   node scripts/updater-manifest.mjs release-artifacts "$GITHUB_REF_NAME"
-   ```
-
-   It fails unless each platform has exactly one update file with a signature.
-3. Publish the release as a normal (not pre-) release. GitHub's
-   `releases/latest` URL skips prereleases and drafts, so a prerelease is never
-   offered to installed apps.
+   The script fails unless each platform has exactly one update file with a
+   signature. The same generated notes are used as the GitHub release notes.
+3. It publishes a normal release, not a draft or prerelease. GitHub's
+   `releases/latest` URL skips prereleases and drafts, so only a stable release
+   is offered to installed apps.
 
 Never rotate the signing key casually: installed apps trust only the public key
 they shipped with, so a release signed with a new key cannot reach them. Keep
