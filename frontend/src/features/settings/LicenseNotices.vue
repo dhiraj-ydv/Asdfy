@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, reactive, ref, useTemplateRef } from 'vue';
-import { loadNotices, type Notices } from '../../services/notices';
+import { loadNotices, type NoticePackage, type Notices } from '../../services/notices';
 import Icon from '../../shell/Icon.vue';
 
 const dialogEl = useTemplateRef<HTMLDialogElement>('dialog');
@@ -8,7 +8,12 @@ const state = ref<'idle' | 'loading' | 'ready' | 'missing' | 'error'>('idle');
 const notices = ref<Notices | null>(null);
 const query = ref('');
 // License texts are only rendered for expanded entries; all of them together are several megabytes of DOM.
+// The set also drives each entry's open state, so an entry filtered out and back in keeps it.
 const expanded = reactive(new Set<string>());
+const sources: Record<NoticePackage['source'], string> = {
+  app: 'This app', crate: 'Rust crate', npm: 'npm package', bundled: 'C library compiled into Asdfy',
+};
+const keyOf = (pkg: NoticePackage) => `${pkg.source}:${pkg.name}@${pkg.version}`;
 
 const shown = computed(() => {
   const needle = query.value.trim().toLowerCase();
@@ -28,22 +33,23 @@ async function open() {
   }
 }
 
-function toggle(key: string, event: Event) {
+function toggle(pkg: NoticePackage, event: Event) {
+  const key = keyOf(pkg);
   if ((event.target as HTMLDetailsElement).open) expanded.add(key);
   else expanded.delete(key);
 }
 </script>
 
 <template>
-  <button class="btn btn-secondary" @click="open">Third-party licenses</button>
+  <button class="btn btn-secondary" @click="open">Licenses and notices</button>
   <dialog ref="dialog" class="notices" aria-labelledby="notices-title" @click.self="dialogEl?.close()">
     <div class="notices-body">
       <header>
-        <h2 id="notices-title">Third-party licenses</h2>
+        <h2 id="notices-title">Licenses and notices</h2>
         <button class="icon-btn" aria-label="Close" @click="dialogEl?.close()"><Icon name="close" /></button>
       </header>
-      <p class="muted">Asdfy is built with the open-source software listed here. Each entry shows the license it is
-        used under and the license and notice files it is distributed with.</p>
+      <p class="muted">Asdfy's own license and notice come first, followed by the open-source software it is built
+        with. Each entry shows the license it is used under and the license and notice files it is distributed with.</p>
       <p v-if="state === 'loading'" role="status">Loading…</p>
       <p v-else-if="state === 'missing'" class="muted">License notices are added when Asdfy is packaged. This
         development build does not include them.</p>
@@ -53,16 +59,17 @@ function toggle(key: string, event: Event) {
           aria-label="Filter packages" />
         <p class="muted count">{{ shown.length }} of {{ notices.packages.length }} packages</p>
         <ul>
-          <li v-for="pkg in shown" :key="`${pkg.source}:${pkg.name}@${pkg.version}`">
-            <details @toggle="toggle(`${pkg.source}:${pkg.name}@${pkg.version}`, $event)">
-              <summary><strong>{{ pkg.name }}</strong> <span class="muted">{{ pkg.version }}</span>
-                <span class="license">{{ pkg.license }}</span></summary>
-              <template v-if="expanded.has(`${pkg.source}:${pkg.name}@${pkg.version}`)">
-                <p class="muted source">{{ pkg.source === 'crate' ? 'Rust crate' : 'npm package' }} ·
-                  <span class="url">{{ pkg.repository }}</span></p>
+          <li v-for="pkg in shown" :key="keyOf(pkg)">
+            <details :open="expanded.has(keyOf(pkg))" @toggle="toggle(pkg, $event)">
+              <summary>
+                <span class="name"><strong>{{ pkg.name }}</strong> <span class="muted">{{ pkg.version }}</span></span>
+                <span class="license">{{ pkg.license }}</span>
+              </summary>
+              <template v-if="expanded.has(keyOf(pkg))">
+                <p class="muted source">{{ sources[pkg.source] }} · <span class="url">{{ pkg.repository }}</span></p>
+                <p v-if="pkg.standardText" class="muted source">This package is published without a license file, so
+                  the standard text of each license it names is shown, with its authors as the copyright holders.</p>
                 <pre v-for="id in pkg.texts" :key="id">{{ notices.texts[id] }}</pre>
-                <p v-if="!pkg.texts.length" class="muted">This package is published without a license file. Its
-                  license, {{ pkg.license }}, is stated in its package metadata.</p>
               </template>
             </details>
           </li>
@@ -98,8 +105,33 @@ header { display: flex; align-items: center; justify-content: space-between; gap
 .count { font-size: 0.85rem; }
 ul { list-style: none; margin: 0; padding: 0; }
 li { border-top: 1px solid var(--border); }
-summary { padding: 8px 0; cursor: pointer; }
-.license { float: right; margin-left: 12px; color: var(--muted); font-size: 0.85rem; }
+summary {
+  position: relative;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 2px 12px;
+  padding: 8px 0 8px 20px;
+  list-style: none;
+  cursor: pointer;
+}
+summary::-webkit-details-marker { display: none; }
+summary::before {
+  content: '';
+  position: absolute;
+  left: 3px;
+  top: 15px;
+  width: 6px;
+  height: 6px;
+  border-right: 2px solid var(--muted);
+  border-bottom: 2px solid var(--muted);
+  transform: rotate(-45deg);
+}
+details[open] > summary::before { transform: rotate(45deg); }
+.name { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+/* Long expressions such as "Apache-2.0 WITH LLVM-exception OR …" wrap onto their own right-aligned line. */
+.license { margin-left: auto; max-width: 100%; text-align: right; overflow-wrap: anywhere; color: var(--muted);
+  font-size: 0.85rem; }
 .source { font-size: 0.85rem; margin-bottom: 8px; }
 .url { word-break: break-all; }
 pre {

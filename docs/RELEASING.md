@@ -55,8 +55,9 @@ overwritten by rerunning the workflow; create a new version instead.
 
 Each package build also generates the third-party license notices for its own
 target through `beforeBuildCommand` (see
-[DEVELOPMENT.md](DEVELOPMENT.md#local-preview)); a failure there fails the build.
-Crates published without a license file are named in the build log.
+[DEVELOPMENT.md](DEVELOPMENT.md#local-preview)); a failure there, including a
+license with no standard text in `scripts/licenses/`, fails the build. Packages
+that fall back to standard texts are named in the build log.
 
 Bundle settings live in the `bundle` section of `src-tauri/tauri.conf.json`.
 

@@ -27,12 +27,19 @@ or `--bundles dmg` (macOS). Output is written under
 `src-tauri/target/release/bundle/`.
 
 Before each frontend build, Tauri runs `scripts/third-party-notices.mjs`. It
-collects the license and notice files of the Rust crates linked for the build's
-target (from `cargo metadata`) and of the frontend's runtime npm dependencies,
-and writes them to `frontend/src/generated/third-party-notices.json`, which is
-not committed. The frontend bundles that file as a lazily loaded chunk for
-**Settings → Third-party licenses**. `npm run tauri dev` skips the step, so the
-viewer reports that notices are missing until you run the script yourself.
+collects Asdfy's `LICENSE` and `NOTICE`, the license and notice files of the
+Rust crates linked for the build's target (from `cargo metadata`), the vendored
+SQLite, and the frontend's runtime npm dependencies, and writes them to
+`frontend/src/generated/third-party-notices.json`, which is not committed. The
+frontend bundles that file as a lazily loaded chunk for **Settings → Licenses and
+notices**. `npm run tauri dev` skips the step, so the viewer reports that notices
+are missing until you run `node scripts/third-party-notices.mjs` yourself.
+
+Some packages are published without a license file. For those, the script uses
+the standard text of each license in the package's license expression from
+`scripts/licenses/` (SPDX texts), with the package's authors as copyright
+holders. The build stops if a license has no template there; add the SPDX text
+for that identifier (see `scripts/licenses/README.md`).
 
 ## Architecture
 
@@ -96,7 +103,7 @@ src-tauri/src/
                     fake-server test suite
 src-tauri/icons/    App icon source (app-icon.svg) and generated platform icons
 scripts/            Release version checks, the updater manifest (latest.json) builder,
-                    and the third-party license notice generator
+                    the license notice generator, and its SPDX license templates (licenses/)
 .github/            Build/release workflow and Dependabot configuration
 docs/               Maintainer documentation
 package.json        Root npm project: Tauri CLI plus the version source of truth

@@ -3,10 +3,13 @@ export interface NoticePackage {
   name: string;
   version: string;
   license: string;
-  source: 'crate' | 'npm';
+  /** `app` is Asdfy itself; `bundled` is C code compiled into it, such as SQLite. */
+  source: 'app' | 'crate' | 'npm' | 'bundled';
   repository: string;
   /** Keys into `Notices.texts`, one per license or notice file the package ships. */
   texts: string[];
+  /** Set when the package ships no license file and `texts` holds its licenses' standard texts. */
+  standardText?: boolean;
 }
 
 export interface Notices {

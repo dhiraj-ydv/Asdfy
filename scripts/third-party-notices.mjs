@@ -1,5 +1,5 @@
-// Writes the third-party license notices that Settings → About shows, from the Rust crates and npm
-// packages that go into the app. Tauri runs it before every frontend build, so each package lists
+// Writes the license notices that Settings → About shows: Asdfy's own LICENSE and NOTICE, then the
+// Rust crates and npm packages that go into the app. Tauri runs it before every frontend build, so each package lists
 // the crates for the platform it was built for.
 // Usage: node scripts/third-party-notices.mjs [output file]
 import { execFileSync } from 'node:child_process';
@@ -11,6 +11,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const defaultOutput = join(root, 'frontend/src/generated/third-party-notices.json');
 const licenseName = /^(licen[cs]e|copying|copyright|notice|unlicense)([-._ ].*)?$/i;
+const templates = join(root, 'scripts/licenses');
 
 /** License and notice files in a package folder, as `[file name, text]` pairs sorted by name. */
 export function licenseFiles(dir, extra = []) {
@@ -43,7 +44,7 @@ export function collectCrates(metadata) {
     const dir = dirname(pkg.manifest_path);
     return {
       name: pkg.name, version: pkg.version, license: pkg.license ?? 'See license file', source: 'crate',
-      repository: pkg.repository ?? pkg.homepage ?? `https://crates.io/crates/${pkg.name}`,
+      repository: pkg.repository ?? pkg.homepage ?? `https://crates.io/crates/${pkg.name}`, authors: pkg.authors ?? [],
       files: licenseFiles(dir, pkg.license_file ? [pkg.license_file] : []),
       dir,
     };
@@ -74,6 +75,7 @@ export function collectNpm(frontendDir) {
       name: manifest.name, version: manifest.version, source: 'npm',
       license: typeof manifest.license === 'string' ? manifest.license : manifest.license?.type ?? 'See license file',
       repository: repository?.replace(/^git\+/, '').replace(/\.git$/, '') ?? `https://www.npmjs.com/package/${manifest.name}`,
+      authors: [manifest.author].flat().filter(Boolean).map(author => typeof author === 'string' ? author : author.name),
       files: licenseFiles(pkgDir),
       dir: pkgDir,
     });
@@ -92,11 +94,46 @@ function bundledSqlite(crates) {
   if (!header || !existsSync(header)) return [];
   const version = readFileSync(header, 'utf8').match(/#define SQLITE_VERSION\s+"([^"]+)"/)?.[1] ?? 'bundled';
   return [{
-    name: 'SQLite', version, license: 'Public Domain', source: 'crate', repository: 'https://sqlite.org/copyright.html',
+    name: 'SQLite', version, license: 'Public Domain', source: 'bundled', repository: 'https://sqlite.org/copyright.html',
     files: [['blessing', 'The author disclaims copyright to this source code. In place of a legal notice, here is a blessing:\n\n'
       + '    May you do good and not evil.\n    May you find forgiveness for yourself and forgive others.\n'
       + '    May you share freely, never taking more than you give.']],
   }];
+}
+
+/** Asdfy itself, listed first so its own license and NOTICE are part of the notices. */
+function application() {
+  const { version } = JSON.parse(readFileSync(join(root, 'package.json'), 'utf8'));
+  return {
+    name: 'Asdfy', version, license: 'Apache-2.0', source: 'app', repository: 'https://github.com/exolithelabs/Asdfy',
+    files: licenseFiles(root).filter(([name]) => name === 'LICENSE' || name === 'NOTICE'),
+  };
+}
+
+/** SPDX identifiers in a license expression such as `(MIT OR Apache-2.0) AND Unicode-3.0` or `MIT/Apache-2.0`. */
+export function licenseIds(expression) {
+  return [...new Set(expression.split(/[\s()/]+/).filter(id => id && !/^(AND|OR|WITH)$/i.test(id)))];
+}
+
+/**
+ * Gives a package published without license files the standard text of every license its
+ * expression names, with the template's copyright line filled from the package's authors.
+ * Throws when a template is missing so new dependencies cannot ship without their texts.
+ */
+export function withStandardTexts(pkg, templateDir = templates) {
+  if (pkg.files.length) return pkg;
+  const holders = (pkg.authors ?? []).map(author => author.replace(/\s*<[^>]*>/, '').trim()).filter(Boolean);
+  const owner = holders.length ? holders.join(', ') : `the ${pkg.name} authors`;
+  const files = licenseIds(pkg.license).map(id => {
+    const path = join(templateDir, `${id}.txt`);
+    if (!existsSync(path)) {
+      throw new Error(`${pkg.name} ${pkg.version} has no license file and scripts/licenses has no ${id}.txt`);
+    }
+    const text = readFileSync(path, 'utf8').replace(/\r\n?/g, '\n').trim()
+      .replace(/^(Copyright(?: \(c\))?) <year> <[^>]+>\.?$/m, `$1 ${owner}`);
+    return [`${id} (standard text)`, text];
+  });
+  return { ...pkg, files, standardText: true };
 }
 
 /**
@@ -105,15 +142,16 @@ function bundledSqlite(crates) {
  */
 export function buildNotices(packages) {
   const texts = {};
-  const entries = packages.map(({ name, version, license, source, repository, files }) => {
+  const entries = packages.map(({ name, version, license, source, repository, files, standardText }) => {
     const ids = files.map(([, text]) => {
       const id = createHash('sha256').update(text.replace(/\s+/g, ' ')).digest('hex').slice(0, 16);
       texts[id] ??= text;
       return id;
     });
-    return { name, version, license, source, repository, texts: [...new Set(ids)] };
+    return { name, version, license, source, repository, texts: [...new Set(ids)], ...(standardText && { standardText }) };
   });
-  entries.sort((a, b) => a.name.localeCompare(b.name) || a.version.localeCompare(b.version, undefined, { numeric: true }));
+  entries.sort((a, b) => Number(b.source === 'app') - Number(a.source === 'app') || a.name.localeCompare(b.name)
+    || a.version.localeCompare(b.version, undefined, { numeric: true }));
   return { packages: entries, texts };
 }
 
@@ -132,10 +170,10 @@ if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) 
     ...triples.flatMap(triple => ['--filter-platform', triple]),
   ], { encoding: 'utf8', maxBuffer: 256 * 1024 * 1024 }));
   const crates = collectCrates(metadata);
-  const packages = [...crates, ...bundledSqlite(crates), ...collectNpm(join(root, 'frontend'))];
-  const notices = buildNotices(packages);
-  const missing = notices.packages.filter(pkg => !pkg.texts.length).map(pkg => `${pkg.name} ${pkg.version}`);
-  if (missing.length) console.warn(`No license file shipped with: ${missing.join(', ')}`);
+  const thirdParty = [...crates, ...bundledSqlite(crates), ...collectNpm(join(root, 'frontend'))];
+  const standard = thirdParty.filter(pkg => !pkg.files.length).map(pkg => `${pkg.name} ${pkg.version}`);
+  if (standard.length) console.log(`Using standard license texts for: ${standard.join(', ')}`);
+  const notices = buildNotices([application(), ...thirdParty.map(pkg => withStandardTexts(pkg))]);
   mkdirSync(dirname(output), { recursive: true });
   writeFileSync(output, JSON.stringify(notices) + '\n');
   console.log(`Wrote notices for ${notices.packages.length} packages (${triples.join(', ')}) to ${output}`);

@@ -127,13 +127,23 @@ test('settings persist across reloads', async ({ page }) => {
   await expect(page.locator('.keyboard')).toHaveCount(0);
 });
 
-test('third-party licenses open from settings and close with Escape', async ({ page }) => {
+test('licenses and notices list Asdfy first and keep open entries open while filtering', async ({ page }) => {
+  // CI generates the notices before these tests; see the quality job in desktop-build.yml.
   await page.getByRole('button', { name: 'Settings' }).click();
-  await page.getByRole('button', { name: 'Third-party licenses' }).click();
-  const dialog = page.getByRole('dialog', { name: 'Third-party licenses' });
-  // The development server has no generated notices; packaged builds do.
-  await expect(dialog.getByText('License notices are added when Asdfy is packaged.')).toBeVisible();
-  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: 'Licenses and notices' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Licenses and notices' });
+  const filter = dialog.getByLabel('Filter packages');
+  await expect(dialog.locator('summary').first()).toContainText('Asdfy');
+  await dialog.locator('summary').first().click();
+  await expect(dialog.locator('pre')).toHaveCount(2);
+  await expect(dialog.locator('pre').first()).toContainText('Apache License');
+  await filter.fill('vue');
+  await expect(dialog.locator('summary').first()).toContainText('@vue/');
+  await expect(dialog.locator('pre')).toHaveCount(0);
+  await filter.fill('');
+  await expect(dialog.locator('details').first()).toHaveAttribute('open', '');
+  await expect(dialog.locator('pre')).toHaveCount(2);
+  await dialog.getByRole('button', { name: 'Close' }).click();
   await expect(dialog).toBeHidden();
 });
 
