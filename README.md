@@ -151,10 +151,9 @@ It does not need the older `libfuse2`/`fuse2`; on Ubuntu, do not install the old
 Without FUSE (for example in containers or WSL), run it with
 `--appimage-extract-and-run`, or set `APPIMAGE_EXTRACT_AND_RUN=1`.
 
-**The window is the wrong size on Wayland.** The AppImage runs through XWayland,
-where GTK applies `GDK_SCALE`. If your session sets a scale that does not match
-your monitor, start Asdfy with the right one, for example
-`GDK_SCALE=1 ./Asdfy_<version>_amd64.AppImage`.
+**The window misbehaves on Wayland.** The AppImage runs natively on Wayland
+sessions. If you see rendering or scaling problems, you can run it through
+XWayland instead with `GDK_BACKEND=x11 ./Asdfy_<version>_amd64.AppImage`.
 
 **The window closes on NVIDIA.** The AppImage disables WebKitGTK's DMA-BUF renderer
 by default to avoid this. To re-enable it for testing, start Asdfy with
