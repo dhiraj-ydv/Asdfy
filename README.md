@@ -91,6 +91,10 @@ switches for the on-screen keyboard and finger guide.
 | `Escape` | Restart the exercise, or practise again from the results |
 | `Enter` | Continue from the results |
 
+Asdfy behaves like a desktop app rather than a web page: right-clicking shows no
+browser menu (text boxes keep cut, copy and paste), and browser keys such as reload,
+print, find, view source, history navigation and the web inspector do nothing.
+
 ### Keyboard backlight
 
 With a per-key RGB keyboard, Asdfy can light the next key on the keyboard itself,
