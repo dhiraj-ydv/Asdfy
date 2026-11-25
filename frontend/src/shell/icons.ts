@@ -14,6 +14,7 @@ export const ICONS = {
   upload: 'M12 15V4M7 9l5-5 5 5M4 20h16',
   download: 'M12 4v11M7 10l5 5 5-5M4 20h16',
   power: 'M12 2v9M6.3 6.3a8 8 0 1 0 11.4 0',
+  close: 'M6 6l12 12M18 6L6 18',
 } as const;
 
 export type IconName = keyof typeof ICONS;

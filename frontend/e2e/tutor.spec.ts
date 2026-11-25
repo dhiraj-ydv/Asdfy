@@ -127,6 +127,16 @@ test('settings persist across reloads', async ({ page }) => {
   await expect(page.locator('.keyboard')).toHaveCount(0);
 });
 
+test('third-party licenses open from settings and close with Escape', async ({ page }) => {
+  await page.getByRole('button', { name: 'Settings' }).click();
+  await page.getByRole('button', { name: 'Third-party licenses' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Third-party licenses' });
+  // The development server has no generated notices; packaged builds do.
+  await expect(dialog.getByText('License notices are added when Asdfy is packaged.')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toBeHidden();
+});
+
 test('the physical keyboard backlight follows the next key when enabled', async ({ page }) => {
   const litKey = () => page.evaluate(() => (window as unknown as { lit?: { key: string }[] }).lit?.[0]?.key ?? null);
   await page.getByRole('button', { name: 'Settings' }).click();

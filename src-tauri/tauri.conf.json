@@ -6,7 +6,7 @@
   "build": {
     "beforeDevCommand": "npm --prefix frontend run dev",
     "devUrl": "http://localhost:5174",
-    "beforeBuildCommand": "npm --prefix frontend run build",
+    "beforeBuildCommand": "node scripts/third-party-notices.mjs && npm --prefix frontend run build",
     "frontendDist": "../frontend/dist"
   },
   "app": {

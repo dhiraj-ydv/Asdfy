@@ -177,3 +177,7 @@ release workflow.
 ## License
 
 [Apache License 2.0](LICENSE). See [NOTICE](NOTICE) for attributions.
+
+Asdfy is built on open-source libraries that keep their own licenses. Every
+package includes their license and notice texts; open **Settings → About and
+updates → Third-party licenses** to read them.

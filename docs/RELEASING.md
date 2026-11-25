@@ -53,6 +53,11 @@ overwritten by rerunning the workflow; create a new version instead.
    notes) and `SHA256SUMS`, then publishes a stable release. A release that is
    already published is left unchanged.
 
+Each package build also generates the third-party license notices for its own
+target through `beforeBuildCommand` (see
+[DEVELOPMENT.md](DEVELOPMENT.md#local-preview)); a failure there fails the build.
+Crates published without a license file are named in the build log.
+
 Bundle settings live in the `bundle` section of `src-tauri/tauri.conf.json`.
 
 ## Signing

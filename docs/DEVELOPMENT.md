@@ -26,6 +26,14 @@ To build a package for your own platform, run
 or `--bundles dmg` (macOS). Output is written under
 `src-tauri/target/release/bundle/`.
 
+Before each frontend build, Tauri runs `scripts/third-party-notices.mjs`. It
+collects the license and notice files of the Rust crates linked for the build's
+target (from `cargo metadata`) and of the frontend's runtime npm dependencies,
+and writes them to `frontend/src/generated/third-party-notices.json`, which is
+not committed. The frontend bundles that file as a lazily loaded chunk for
+**Settings → Third-party licenses**. `npm run tauri dev` skips the step, so the
+viewer reports that notices are missing until you run the script yourself.
+
 ## Architecture
 
 | Component | Implementation |
@@ -87,7 +95,8 @@ src-tauri/src/
   lighting/         OpenRGB SDK client for the optional keyboard backlight, with a
                     fake-server test suite
 src-tauri/icons/    App icon source (app-icon.svg) and generated platform icons
-scripts/            Release version checks and the updater manifest (latest.json) builder
+scripts/            Release version checks, the updater manifest (latest.json) builder,
+                    and the third-party license notice generator
 .github/            Build/release workflow and Dependabot configuration
 docs/               Maintainer documentation
 package.json        Root npm project: Tauri CLI plus the version source of truth

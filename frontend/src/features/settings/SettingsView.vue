@@ -4,6 +4,7 @@ import { settings } from '../../services/settings';
 import { connectLighting, lighting } from '../../services/lighting';
 import type { Updates } from '../../composables/useUpdates';
 import Icon from '../../shell/Icon.vue';
+import LicenseNotices from './LicenseNotices.vue';
 
 const props = defineProps<{ version: string; error: string; dataLocation: string; update: Updates['update'] }>();
 const emit = defineEmits<{ control: [action: 'restart' | 'close']; check: []; install: []; restart: [] }>();
@@ -121,6 +122,9 @@ const updateText = computed(() => {
       </label>
       <p v-if="dataLocation" class="muted">Progress is stored in <code>{{ dataLocation }}</code>. Quit the app before
         copying that folder as a backup.</p>
+      <p class="muted">Asdfy is free software under the Apache License 2.0 and includes open-source components
+        under their own licenses.</p>
+      <div class="controls"><LicenseNotices /></div>
       <div class="controls">
         <button class="btn btn-secondary" @click="emit('control', 'restart')"><Icon name="restart" />Restart app</button>
         <button class="btn btn-ghost btn-danger" @click="emit('control', 'close')"><Icon name="power" />Quit app</button>
