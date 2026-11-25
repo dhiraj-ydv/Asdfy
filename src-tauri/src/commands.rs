@@ -93,7 +93,21 @@ fn update_error(error: tauri_plugin_updater::Error) -> String {
 
 #[tauri::command]
 pub async fn update_check(app: tauri::AppHandle, pending: State<'_, PendingUpdate>) -> Result<Option<UpdateInfo>> {
-    let update = app.updater().map_err(update_error)?.check().await.map_err(update_error)?;
+    // The Windows installer exits the process after this hook, so the RunEvent::Exit
+    // handler never runs. Release the keyboard here, then run Tauri's own cleanup.
+    let lighting = Arc::clone(app.state::<Arc<Lighting>>().inner());
+    let handle = app.clone();
+    let update = app
+        .updater_builder()
+        .on_before_exit(move || {
+            lighting.disconnect();
+            handle.cleanup_before_exit();
+        })
+        .build()
+        .map_err(update_error)?
+        .check()
+        .await
+        .map_err(update_error)?;
     let info = update.as_ref().map(|update| UpdateInfo {
         version: update.version.clone(),
         notes: update.body.clone(),
