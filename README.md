@@ -155,9 +155,13 @@ Without FUSE (for example in containers or WSL), run it with
 sessions. If you see rendering or scaling problems, you can run it through
 XWayland instead with `GDK_BACKEND=x11 ./Asdfy_<version>_amd64.AppImage`.
 
-**The window closes on NVIDIA.** The AppImage disables WebKitGTK's DMA-BUF renderer
-by default to avoid this. To re-enable it for testing, start Asdfy with
-`WEBKIT_DISABLE_DMABUF_RENDERER=0`.
+**The window closes or stays blank on NVIDIA.** With NVIDIA's driver loaded, Asdfy
+has WebKitGTK hand its frames to the compositor through shared memory, which avoids
+this while keeping GPU rendering. If it still happens, start Asdfy with
+`WEBKIT_DISABLE_DMABUF_RENDERER=1`, which renders without the GPU and scrolls more
+slowly. Asdfy leaves these settings alone when you set
+`WEBKIT_DISABLE_DMABUF_RENDERER`, `WEBKIT_DMABUF_RENDERER_FORCE_SHM`, or
+`WEBKIT_DISABLE_COMPOSITING_MODE` yourself.
 
 ## Support
 
