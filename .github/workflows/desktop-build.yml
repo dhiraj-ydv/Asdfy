@@ -78,7 +78,9 @@ jobs:
             updater: src-tauri/target/release/bundle/nsis/*-setup.exe.sig
           - name: macOS
             os: macos-15
-            bundles: dmg
+            # `app` is required on tag builds: Tauri writes Asdfy.app.tar.gz only for
+            # the app target. A dmg-only build skips updater artifacts.
+            bundles: app,dmg
             target: universal-apple-darwin
             rust-targets: aarch64-apple-darwin,x86_64-apple-darwin
             artifact: Asdfy-macOS-universal
@@ -177,7 +179,15 @@ jobs:
             printf '%s\n' "${{ matrix.path }}"
             if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
               IFS='|' read -ra updater_globs <<< "${{ matrix.updater }}"
-              printf '%s\n' "${updater_globs[@]}"
+              shopt -s nullglob
+              for glob in "${updater_globs[@]}"; do
+                matches=( $glob )
+                if [[ ${#matches[@]} -eq 0 ]]; then
+                  echo "Missing updater artifact: $glob" >&2
+                  exit 1
+                fi
+                printf '%s\n' "$glob"
+              done
             fi
             echo EOF
           } >> "$GITHUB_OUTPUT"

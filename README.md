@@ -329,7 +329,8 @@ git push origin master v0.2.0
 ```
 
 After all three platform jobs pass, GitHub Actions attaches the three packages, their
-updater files, and `latest.json`, and publishes a stable release automatically. The release job uses GitHub's automatic token.
+updater files, and `latest.json`, and publishes a stable release automatically.
+The macOS job bundles the app and the disk image so the updater archive is produced. The release job uses GitHub's automatic token.
 Tag builds sign the updater files with the `TAURI_SIGNING_PRIVATE_KEY` repository secret, and with
 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` when the key has a password. Add that secret before the first version tag.
 Pull requests and branch builds do not create updater artifacts.

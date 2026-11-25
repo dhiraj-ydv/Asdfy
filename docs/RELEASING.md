@@ -42,7 +42,8 @@ overwritten by rerunning the workflow; create a new version instead.
      `~/.local/share/io.github.exolithelabs.asdfy/progress.sqlite3`.
    - Windows builds the per-user NSIS installer (`installMode: currentUser`).
    - macOS adds the `aarch64` and `x86_64` Rust targets and builds a
-     `universal-apple-darwin` disk image.
+     `universal-apple-darwin` app bundle and disk image (`--bundles app,dmg`).
+     The updater archive is produced only for the `app` target.
 3. **Publish GitHub release** (`ubuntu-latest`) runs only for `v*` tags. It
    downloads the three artifacts, flattens nested bundle folders, and refuses to
    publish unless the AppImage, Windows installer, macOS disk image, macOS
@@ -103,8 +104,10 @@ On a `v*` tag the workflow does three things:
    an empty password secret is omitted so an unencrypted key can still sign.
    The build passes `--config '{"bundle":{"createUpdaterArtifacts":true}}'`,
    which writes a `.sig` next to the AppImage and the NSIS installer, and on
-   macOS adds `bundle/macos/Asdfy.app.tar.gz` with its `.sig`. Those files are
-   uploaded with the packages.
+   macOS adds `bundle/macos/Asdfy.app.tar.gz` with its `.sig`. The macOS job
+   must bundle `app` as well as `dmg`; a disk image alone does not emit that
+   archive. The package job fails the tag build if any updater file is missing.
+   Those files are uploaded with the packages.
 2. The release job flattens every platform's files into one folder and writes
    the manifest:
 
