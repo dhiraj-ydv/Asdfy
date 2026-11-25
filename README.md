@@ -48,9 +48,6 @@ chmod +x Asdfy_<version>_amd64.AppImage
 ./Asdfy_<version>_amd64.AppImage
 ```
 
-If you installed an earlier Asdfy from a `.deb` or `.rpm`, remove that package and
-use the AppImage instead; your progress is kept.
-
 **Windows.** Run the installer; it installs for your user without administrator
 rights. If SmartScreen shows **Windows protected your PC**, choose
 **More info → Run anyway**. Uninstall from **Settings → Apps**.
