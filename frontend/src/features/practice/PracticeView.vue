@@ -89,7 +89,7 @@ function restart() {
         <div class="live-stat"><span class="value">{{ clock }}</span><span class="label">{{ remainingMs === null ? 'time' : 'seconds left' }}</span></div>
       </div>
       <div class="progress" role="progressbar" aria-label="Progress" aria-valuemin="0" aria-valuemax="100" :aria-valuenow="percent">
-        <span :style="{ width: `${percent}%` }"></span>
+        <span :style="{ transform: `scaleX(${percent / 100})` }"></span>
       </div>
 
       <div class="typing-area" @click="focus">
@@ -128,7 +128,7 @@ function restart() {
 .live-stat .label { color: var(--muted); font-size: 0.85rem; font-weight: 600; }
 
 .progress { height: 4px; border-radius: 2px; background: var(--surface-3); overflow: hidden; margin-top: -8px; }
-.progress span { display: block; height: 100%; background: var(--accent); transition: width 0.2s; }
+.progress span { display: block; height: 100%; background: var(--accent); transform-origin: left; transition: transform 0.2s; }
 
 .typing-area {
   position: relative;

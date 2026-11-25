@@ -112,7 +112,6 @@ function style(key: Cap) {
   font-size: calc(var(--u) * 0.3);
   font-weight: 650;
   line-height: 1;
-  transition: background-color 0.12s, transform 0.08s, box-shadow 0.12s, color 0.12s;
 }
 
 .key.modifier { color: var(--faint); font-size: calc(var(--u) * 0.24); font-weight: 600; }
@@ -138,6 +137,7 @@ function style(key: Cap) {
 
 .key.target .shifted { color: rgba(16, 19, 23, 0.7); }
 
+/* No transitions: at typing speed the next key arrives before a fade would finish, so the highlight would lag. */
 .key.pressed {
   transform: translateY(1px) scale(0.96);
   background: var(--surface-3);

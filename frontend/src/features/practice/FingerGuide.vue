@@ -53,7 +53,7 @@ function style(id: number) {
 .finger-guide { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; }
 svg { width: 100%; max-width: 300px; height: auto; }
 .palm { fill: var(--surface-2); stroke: var(--border-strong); stroke-width: 1.5; }
-.digit { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; transition: fill 0.12s; }
+.digit { fill: var(--surface); stroke: var(--border-strong); stroke-width: 1.5; }
 .digit.active { fill: var(--finger); stroke: var(--finger); }
 .digit.shift { fill: color-mix(in srgb, var(--finger) 35%, var(--surface)); stroke: var(--finger); stroke-dasharray: 4 3; }
 figcaption { min-height: 1.4em; font-size: 0.85rem; font-weight: 600; color: var(--muted); }

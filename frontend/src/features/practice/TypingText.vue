@@ -4,10 +4,10 @@ import { computed, nextTick, onMounted, onUnmounted, ref, useTemplateRef, watch 
 const props = defineProps<{ text: string; input: string; focused: boolean; started: boolean }>();
 const root = useTemplateRef<HTMLElement>('root');
 const inner = useTemplateRef<HTMLElement>('inner');
+const caret = useTemplateRef<HTMLElement>('caret');
 const target = computed(() => Array.from(props.text));
 const typed = computed(() => Array.from(props.input));
-const caret = ref({ x: 0, y: 0, height: 0, visible: false });
-const offset = ref(0);
+const caretVisible = ref(false);
 let observer: ResizeObserver | undefined;
 
 /** Words keep their trailing space so lines only wrap between words. */
@@ -25,22 +25,35 @@ const words = computed(() => {
   return groups;
 });
 
+/**
+ * Everything a word's rendering depends on, for `v-memo`: its typed characters and whether the caret is in it.
+ * A keystroke then re-renders one or two words instead of the whole text.
+ */
+function signature(word: { start: number; characters: string[] }): string {
+  const length = typed.value.length;
+  if (word.start > length) return '';
+  const end = word.start + word.characters.length;
+  return typed.value.slice(word.start, end).join('') + (length < end ? '|' : '');
+}
+
 function state(index: number): string {
   const character = typed.value[index];
   if (character === undefined) return index === typed.value.length ? 'pending current' : 'pending';
   return character === target.value[index] ? 'correct' : 'incorrect';
 }
 
-/** Moves the caret to the next character and scrolls so it stays on the second visible line. */
+/**
+ * Moves the caret to the next character and scrolls so it stays on the second visible line.
+ * Positions are written to the DOM directly so a keystroke does not cause a second render of the text.
+ */
 async function place() {
   await nextTick();
   const element = inner.value?.querySelector<HTMLElement>('.char.current');
-  if (!element) {
-    caret.value = { ...caret.value, visible: false };
-    return;
-  }
-  caret.value = { x: element.offsetLeft, y: element.offsetTop, height: element.offsetHeight, visible: true };
-  offset.value = Math.max(0, element.offsetTop - element.offsetHeight);
+  caretVisible.value = !!element;
+  if (!element || !caret.value || !inner.value) return;
+  caret.value.style.transform = `translate(${element.offsetLeft}px, ${element.offsetTop}px)`;
+  caret.value.style.height = `${element.offsetHeight}px`;
+  inner.value.style.transform = `translateY(${-Math.max(0, element.offsetTop - element.offsetHeight)}px)`;
 }
 
 watch(() => [props.input, props.text], place);
@@ -54,12 +67,11 @@ onUnmounted(() => observer?.disconnect());
 
 <template>
   <div ref="root" class="typing-text" :class="{ blurred: !focused }" :data-text="text" aria-hidden="true">
-    <div ref="inner" class="text-inner" :style="{ transform: `translateY(${-offset}px)` }">
-      <span v-for="word in words" :key="word.start" class="word"><span v-for="(character, position) in word.characters"
-        :key="position" class="char"
+    <div ref="inner" class="text-inner">
+      <span v-for="word in words" :key="word.start" v-memo="[word, signature(word)]" class="word"><span
+        v-for="(character, position) in word.characters" :key="position" class="char"
         :class="[state(word.start + position), { space: character === ' ' }]">{{ character }}</span></span>
-      <span v-show="caret.visible && focused" class="caret" :class="{ waiting: !started }"
-        :style="{ transform: `translate(${caret.x}px, ${caret.y}px)`, height: `${caret.height}px` }"></span>
+      <span v-show="caretVisible && focused" ref="caret" class="caret" :class="{ waiting: !started }"></span>
     </div>
   </div>
 </template>
@@ -73,7 +85,9 @@ onUnmounted(() => observer?.disconnect());
   font-family: var(--font-mono);
   font-size: var(--typing-size);
   line-height: var(--line);
-  transition: filter 0.2s, opacity 0.2s;
+  /* Character state changes never resize anything, so keep their style and layout work inside this box. */
+  contain: layout paint;
+  transition: opacity 0.2s;
 }
 
 .typing-text.blurred { filter: blur(3px); opacity: 0.55; }
@@ -81,6 +95,7 @@ onUnmounted(() => observer?.disconnect());
 .text-inner {
   position: relative;
   transition: transform 0.18s ease-out;
+  will-change: transform;
 }
 
 .word {
@@ -90,7 +105,7 @@ onUnmounted(() => observer?.disconnect());
   overflow-wrap: anywhere;
 }
 
-.char { color: var(--faint); transition: color 0.08s; }
+.char { color: var(--faint); }
 .char.correct { color: var(--text); }
 .char.incorrect { color: var(--danger); text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 6px; }
 .char.incorrect.space { background: var(--danger-soft); border-radius: 3px; text-decoration: none; }
@@ -103,7 +118,9 @@ onUnmounted(() => observer?.disconnect());
   margin-left: -1px;
   border-radius: 1px;
   background: var(--accent);
-  transition: transform 0.09s ease-out;
+  /* Its own compositing layer: moving and blinking the caret never repaints the text. */
+  will-change: transform;
+  transition: transform 0.05s linear;
 }
 
 .caret.waiting { animation: blink 1.1s step-end infinite; }

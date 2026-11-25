@@ -156,10 +156,10 @@ onMounted(() => startButton.value?.focus());
   background: var(--surface);
   border: 1px solid var(--border);
   text-align: left;
-  transition: border-color 0.15s, transform 0.15s;
+  transition: border-color 0.15s;
 }
 
-.lesson:hover { border-color: var(--border-strong); transform: translateY(-1px); }
+.lesson:hover { border-color: var(--border-strong); }
 .lesson.current { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-soft); }
 
 .lesson-status {

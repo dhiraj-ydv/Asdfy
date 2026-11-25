@@ -1,4 +1,8 @@
-/* Design tokens. Light is the base; dark applies for the system preference or an explicit choice. */
+/*
+ * Design tokens. Light is the base; dark applies for the system preference or an explicit choice.
+ * Shadows keep small blur radii, which are cheaper to repaint while scrolling, above all when WebKitGTK renders
+ * in software.
+ */
 :root {
   color-scheme: light;
   --bg: #f5f6f8;
@@ -19,7 +23,7 @@
   --warning: #b7791f;
   --key: #ffffff;
   --key-edge: #c9ced6;
-  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 4px 16px rgba(16, 24, 40, 0.06);
+  --shadow: 0 1px 2px rgba(16, 24, 40, 0.06), 0 2px 8px rgba(16, 24, 40, 0.05);
   --finger-0: #94a3b8;
   --finger-1: #f43f5e;
   --finger-2: #f97316;
@@ -59,7 +63,7 @@
     --warning: #fbbf24;
     --key: #22262d;
     --key-edge: #0b0d10;
-    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.25);
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.22);
   }
 }
 
@@ -83,7 +87,7 @@
   --warning: #fbbf24;
   --key: #22262d;
   --key-edge: #0b0d10;
-  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 8px 24px rgba(0, 0, 0, 0.25);
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 12px rgba(0, 0, 0, 0.22);
 }
 
 :root[data-text-size="small"] { --typing-size: 1.4rem; }
