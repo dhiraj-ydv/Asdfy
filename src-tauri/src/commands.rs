@@ -1,6 +1,6 @@
 use std::sync::{Arc, Mutex, PoisonError};
 use tauri::ipc::Channel;
-use tauri::State;
+use tauri::{Manager, State};
 use tauri_plugin_updater::{Update, UpdaterExt};
 
 use crate::content::LESSONS;
