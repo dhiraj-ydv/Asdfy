@@ -162,10 +162,19 @@ XWayland instead with `GDK_BACKEND=x11 ./Asdfy_<version>_amd64.AppImage`.
 **The window closes or stays blank on NVIDIA.** With NVIDIA's driver loaded, Asdfy
 has WebKitGTK hand its frames to the compositor through shared memory, which avoids
 this while keeping GPU rendering. If it still happens, start Asdfy with
-`WEBKIT_DISABLE_DMABUF_RENDERER=1`, which renders without the GPU and scrolls more
-slowly. Asdfy leaves these settings alone when you set
+`WEBKIT_DISABLE_DMABUF_RENDERER=1`, which stops WebKitGTK from sharing frames as
+DMA-BUF buffers. Asdfy leaves these settings alone when you set
 `WEBKIT_DISABLE_DMABUF_RENDERER`, `WEBKIT_DMABUF_RENDERER_FORCE_SHM`, or
 `WEBKIT_DISABLE_COMPOSITING_MODE` yourself.
+
+**Asdfy crashes inside the graphics driver.** WebKitGTK still draws pages on the
+GPU when the DMA-BUF renderer is disabled, so a driver fault can crash it either
+way, for example a crash in `libnvidia-eglcore.so`. To draw on the CPU instead,
+start Asdfy with `WEBKIT_SKIA_ENABLE_CPU_RENDERING=1`; scrolling may be slower. On
+laptops with both Intel or AMD graphics and an NVIDIA card, you can instead keep
+GPU rendering on the integrated graphics by pointing EGL at Mesa, for example
+`__EGL_VENDOR_LIBRARY_FILENAMES=/usr/share/glvnd/egl_vendor.d/50_mesa.json`
+(the path can differ by distribution).
 
 ## Support
 
