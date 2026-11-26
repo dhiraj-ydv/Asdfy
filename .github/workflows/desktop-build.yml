@@ -55,6 +55,10 @@ jobs:
     needs: quality
     runs-on: ${{ matrix.os }}
     timeout-minutes: 60
+    # Tag builds take the protected release environment so the signing key is
+    # injected only after a reviewer approves a v* deployment. An empty name
+    # selects no environment, which keeps the key off pull requests and branch builds.
+    environment: ${{ startsWith(github.ref, 'refs/tags/v') && 'release' || '' }}
     strategy:
       fail-fast: false
       matrix:
@@ -134,14 +138,11 @@ jobs:
           args=(build --bundles "${{ matrix.bundles }}")
           if [[ -n "${{ matrix.target }}" ]]; then args+=(--target "${{ matrix.target }}"); fi
           # Only version tags sign updater artifacts. Other runs keep createUpdaterArtifacts off
-          # so they need no secret. An empty password is unset so an unencrypted key can sign.
+          # and drop the key, which the release environment would not have supplied anyway.
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            if [[ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]]; then
-              echo "Tag builds require the TAURI_SIGNING_PRIVATE_KEY secret." >&2
+            if [[ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" || -z "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" ]]; then
+              echo "Tag builds require TAURI_SIGNING_PRIVATE_KEY and TAURI_SIGNING_PRIVATE_KEY_PASSWORD from the release environment." >&2
               exit 1
-            fi
-            if [[ -z "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD:-}" ]]; then
-              unset TAURI_SIGNING_PRIVATE_KEY_PASSWORD
             fi
             args+=(--config '{"bundle":{"createUpdaterArtifacts":true}}')
           else

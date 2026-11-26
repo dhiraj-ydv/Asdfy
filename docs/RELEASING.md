@@ -44,6 +44,10 @@ overwritten by rerunning the workflow; create a new version instead.
    - macOS adds the `aarch64` and `x86_64` Rust targets and builds a
      `universal-apple-darwin` app bundle and disk image (`--bundles app,dmg`).
      The updater archive is produced only for the `app` target.
+
+   On a `v*` tag each matrix job selects the `release` environment (see
+   [In-app updates](#in-app-updates)) and waits for reviewer approval before it
+   can read the updater signing key.
 3. **Publish GitHub release** (`ubuntu-latest`) runs only for `v*` tags. It
    downloads the three artifacts, flattens nested bundle folders, and refuses to
    publish unless the AppImage, Windows installer, macOS disk image, macOS
@@ -101,14 +105,17 @@ points to GitHub Releases.
 
 The committed config does not set `bundle.createUpdaterArtifacts`, so pull
 requests, pushes to `master`, and manual runs of other refs need no signing
-secret and do not produce updater files.
+secret and do not produce updater files. Those runs leave the environment name
+empty, so they cannot read the `release` environment secrets.
 
 On a `v*` tag the workflow does three things:
 
-1. The package job requires the Actions secret `TAURI_SIGNING_PRIVATE_KEY`.
-   When `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` is non-empty it is passed through;
-   an empty password secret is omitted so an unencrypted key can still sign.
-   The build passes `--config '{"bundle":{"createUpdaterArtifacts":true}}'`,
+1. Each package job selects the `release` environment. That environment allows
+   only tags matching `v*`, and GitHub holds the job until a required reviewer
+   approves the deployment. Approval is required for each of the three package
+   jobs. The job then receives `TAURI_SIGNING_PRIVATE_KEY` and
+   `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`, and it fails if either is empty. The
+   build passes `--config '{"bundle":{"createUpdaterArtifacts":true}}'`,
    which writes a `.sig` next to the AppImage and the NSIS installer, and on
    macOS adds `bundle/macos/Asdfy.app.tar.gz` with its `.sig`. The macOS job
    must bundle `app` as well as `dmg`; a disk image alone does not emit that
@@ -127,9 +134,24 @@ On a `v*` tag the workflow does three things:
    `releases/latest` URL skips prereleases and drafts, so only a stable release
    is offered to installed apps.
 
-Never rotate the signing key casually: installed apps trust only the public key
-they shipped with, so a release signed with a new key cannot reach them. Keep
-the private key only in the Actions secret.
+The private key is encrypted. Keep the keypair and its password only in
+`~/.tauri/asdfy-updater.key`, `~/.tauri/asdfy-updater.key.pub`, and
+`~/.tauri/asdfy-updater.password` on the maintainer machine, and store the
+private key and password as secrets of the `release` environment. Do not put
+them in repository secrets or in Git.
+
+The `release` environment is limited to tag names matching `v*` (the deployment
+policy is stored both as `v*` and as `refs/tags/v*`, both of type tag, so it
+matches whether GitHub compares the tag name or the full `GITHUB_REF`). A
+required reviewer must approve before the secrets are available. Administrator
+bypass is off. Self-review stays allowed: the repository has one reviewer, and
+blocking that reviewer from approving a tag they pushed would stop releases.
+
+Installed apps trust only the public key they shipped with
+(`plugins.updater.pubkey`, minisign key `7AA95374D79451A0`). A release signed by
+a different key does not update those installs. This tree replaces the previous
+key, so the next published release has to be installed by hand. Later releases
+signed with this key update from that version inside the app.
 
 ## Changing the database schema
 

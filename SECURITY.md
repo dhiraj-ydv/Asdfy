@@ -12,6 +12,9 @@ and on request it reads `latest.json` from this repository's latest release, and
 when the user chooses **Update now** it downloads the update that file names.
 Every update is verified against the minisign public key compiled into the app
 before it is installed; the webview cannot choose the address or the version.
+The private signing key is not in the repository. Tag builds read it from the
+GitHub Actions `release` environment, which only `v*` tags can use and which
+waits for a reviewer before the key is available.
 The only other network connection is the optional keyboard backlight, off by default,
 which connects to an OpenRGB SDK server on `127.0.0.1` only; the webview cannot
 choose the host. The backend exposes a small set of typed IPC commands to the local
