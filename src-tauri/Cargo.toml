@@ -1,6 +1,6 @@
 [package]
 name = "asdfy"
-version = "0.2.3"
+version = "0.2.4"
 description = "Asdfy — touch-typing tutor"
 authors = ["Exolithe Labs"]
 edition = "2021"
